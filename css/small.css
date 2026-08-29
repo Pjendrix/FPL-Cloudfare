@@ -1,0 +1,51 @@
+/* Minileague Squad Check
+
+   Malá obrazovka do 640 px. <link id="mqS">, viz applyView().
+   ============================================================ */
+
+/* Na úzké obrazovce žádné postranní pruhy nejsou — vodoznak by ležel
+     pod textem, ne vedle něj. */
+  body::before{display:none}
+  .cmpbar{grid-template-columns:1fr}
+  .awards{grid-template-columns:1fr}
+  .watchadd{grid-template-columns:1fr}
+  .hcards{grid-template-columns:1fr 1fr}
+  .hgrid{grid-template-columns:1fr}
+  .hrow b{max-width:none}
+  .cmpvs{padding:0;text-align:center}
+  .tgrid{grid-template-columns:1fr}
+  #landing{padding:22px 0;align-items:flex-start}
+  #landing .wrap{grid-template-columns:1fr;gap:24px}
+  .hero .poster{max-width:270px}
+  .gate{padding:22px;max-width:none}
+  .panel{padding:20px 16px}
+  .shirt{width:calc(33.33% - 6px);max-width:108px;padding:8px 5px 9px}
+  .shirt .nm{font-size:12.5px}
+  .shirt .pts{font-size:25px}
+  .pitch{padding:16px 10px 20px}
+  td,th{padding:7px 5px}
+  .hide-s{display:none}
+  .bar .wrap{height:auto;padding-top:10px;padding-bottom:10px}
+  .sync{display:none}
+  button.small.on{max-width:92px}
+  .capopt{grid-template-columns:24px 1fr auto;gap:8px;padding:9px 11px}
+  .ticker td.fx span{min-width:34px;font-size:10px}
+  .compare .chead{grid-template-columns:1fr}
+  .compare .vs{display:none}
+  .livebar{gap:14px;padding:12px 14px 14px}
+  .livebar .big{font-size:26px}
+  .livebar .txt{text-align:left;flex-basis:100%}
+  .candhead{display:none}
+  .cand2{
+    grid-template-columns:1fr auto;gap:2px 8px;
+    padding:10px 4px;
+  }
+  .cand2 .nm{grid-column:1}
+  .cand2 .tm{grid-column:1;grid-row:2}
+  .cand2 .n{text-align:left;font-size:12px;color:var(--mute)}
+  .cand2 .n::before{content:attr(data-l) ' '}
+  .cand2 span:nth-child(3){grid-column:1;grid-row:3}
+  .cand2 span:nth-child(4){grid-column:1;grid-row:4}
+  .cand2 span:nth-child(5){grid-column:2;grid-row:3;text-align:right}
+  .cand2 span:nth-child(6){grid-column:2;grid-row:4;text-align:right}
+  .cand2 span:nth-child(7){grid-column:2;grid-row:1;text-align:right}

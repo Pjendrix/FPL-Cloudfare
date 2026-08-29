@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img"
+     aria-label="Minileague Squad Check">
+  <!-- Puvodni znacka v barvach Premier League (auberginova + mintova).
+       Zamerne NEjde o reprodukci znaku Premier League — ten je chranena
+       ochranna znamka a do vlastni appky nepatri. -->
+  <rect width="64" height="64" rx="15" fill="#37003C"/>
+  <path d="M17 33.5 L27.5 44 L48 20" fill="none" stroke="#00E87B"
+        stroke-width="8" stroke-linecap="square" stroke-linejoin="miter"/>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 132" role="img"
+     aria-label="Minileague Squad Check">
+  <defs>
+    <!-- Znacka: fajfka slozena z peti pasem obtiznosti rozpisu (FDR).
+         Zleva doprava snadny -> tezky, stejna stupnice jako ticker v appce. -->
+    <clipPath id="tick">
+      <path d="M14 62 L40 88 L98 22 L112 36 L40 116 L0 76 Z"/>
+    </clipPath>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4A1052"/><stop offset="1" stop-color="#2B0030"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(6 8)">
+    <g clip-path="url(#tick)">
+      <rect x="0"  y="0" width="23" height="132" fill="#3FCF7F"/>
+      <rect x="23" y="0" width="23" height="132" fill="#8FE0B0"/>
+      <rect x="46" y="0" width="23" height="132" fill="#E4E7EA"/>
+      <rect x="69" y="0" width="23" height="132" fill="#F0A79F"/>
+      <rect x="92" y="0" width="28" height="132" fill="#E0574B"/>
+    </g>
+  </g>
+
+  <g transform="translate(148 0)">
+    <text x="0" y="46" fill="#8A6E92"
+          font-family="'Space Mono',ui-monospace,monospace" font-size="15"
+          font-weight="700" letter-spacing="6.5">MINILEAGUE</text>
+    <text x="-2" y="102" fill="url(#ink)"
+          font-family="Archivo,'Arial Narrow',Oswald,sans-serif" font-size="58"
+          font-weight="800" letter-spacing="-1.5"
+          style="font-stretch:semi-expanded">SQUAD CHECK</text>
+  </g>
+</svg>

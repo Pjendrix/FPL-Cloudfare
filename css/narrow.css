@@ -1,0 +1,24 @@
+/* Minileague Squad Check
+
+   Úzká obrazovka do 720 px. Načítá se přes <link id="mqL">,
+   jehož atribut media přepisuje applyView() v js/ui.js.
+   ============================================================ */
+
+.phead{display:none}
+  .prow,.squadlist.live .prow{
+    grid-template-columns:1fr 1fr;gap:3px 10px;padding:11px 13px;
+  }
+  .prow .who{grid-column:1/-1;margin-bottom:3px}
+  .ptrow{grid-template-columns:1fr auto;gap:4px 10px}
+  .ptrow .fx{grid-column:1/-1}
+  .easygrid{grid-template-columns:1fr}
+  .padd{grid-template-columns:1fr}
+  .pgw-h{gap:10px}
+  .pgw-h button{margin-left:0;width:100%}
+  .prow .n{text-align:left;font-size:11px;color:var(--mute)}
+  .prow .n::before{content:attr(data-l) ' ';font-family:var(--f)}
+  .prow .n b{color:var(--charcoal)}
+  .tick3{grid-column:1/-1;margin-top:5px}
+  .fdrleg .hint{margin-left:0;flex-basis:100%}
+  .awards{grid-template-columns:repeat(2,1fr)}
+  .hall th.c,.hall td.c{width:52px;padding:8px 3px}

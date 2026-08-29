@@ -1,0 +1,295 @@
+/* Minileague Squad Check
+
+   Mobilní skořápka do 720 px: kompaktní horní lišta,
+   plovoucí spodní navigace, plachta „Více“, scrollery kolem tabulek.
+   <link id="mqM">, viz applyView() v js/ui.js.
+   ============================================================ */
+
+:root{--mnav-h:62px}
+  html{-webkit-text-size-adjust:100%}
+
+  /* Pod obsahem musí zůstat místo na plovoucí lištu, jinak by poslední
+     řádek tabulky skončil pod ní a nešel přečíst. */
+  body{padding-bottom:calc(var(--mnav-h) + env(safe-area-inset-bottom) + 18px)}
+  .wrap{padding:0 12px}
+
+  /* ---------- horní lišta ----------
+     Do 400 px se nevejde logo, podtitul, odpočet, jméno a čtyři tlačítka.
+     Zůstává jen to, co člověk potřebuje vidět bez klikání: značka a
+     odpočet. Účet a přepínače se stěhují do plachty „Více“. */
+  .bar{padding-top:env(safe-area-inset-top)}
+  .bar .wrap{height:54px;gap:8px;padding:0 12px}
+  .brand{flex:0 1 auto;min-width:0;overflow:hidden}
+  .brand img{width:26px;height:26px}
+  /* Na telefonu jeden řádek: dva by v 54px liště nechaly jméno týmu
+     bez místa. Ořízne se tedy koncem názvu, ne jeho polovinou. */
+  .brand .tx{font-size:12px;letter-spacing:.02em;-webkit-line-clamp:1;
+    max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar .cd{margin-left:auto;padding:3px 9px;border-radius:9px}
+  .bar .cd .lbl{font-size:7px;letter-spacing:.12em}
+  .bar .cd .val{font-size:12.5px}
+  .bar .who{margin-left:0;gap:5px;flex:none}
+  /* Jméno týmu a správa účtu jdou do plachty „Více“. Přepínač
+     zobrazení ne — je to jediná cesta, jak se z mobilní verze dostat
+     na desktopovou, a schovávat ji o dvě kliknutí hlouběji znamená,
+     že ji člověk na telefonu nenajde. */
+  .bar .who b,#logout,#gauth{display:none!important}
+  .bar .who button.small.icon{padding:4px 7px;min-width:28px;font-size:13px}
+
+  /* Vodorovná navigace se nahrazuje spodní lištou. */
+  .navbar{display:none}
+
+  .rail .wrap{height:32px;padding-top:16px;padding-bottom:5px}
+  .railkey{font-size:9.5px;gap:10px;padding-bottom:6px}
+
+  /* ---------- obsah ----------
+     28px odsazení panelu je na 360px displeji osmina šířky. */
+  .panel{padding:18px 14px;margin:10px 0 14px;border-radius:18px}
+  h2{font-size:14px;margin:24px 0 8px}
+  .panel table{font-size:12px}
+  .tipbox{font-size:12px;padding:11px 13px}
+
+  /* Široké tabulky se nezalamují, jen ujedou do strany — a scroller
+     jde přes okraj panelu, aby bylo poznat, že tam něco pokračuje. */
+  .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;
+    margin:0 -14px;padding:0 14px}
+  .tscroll>table{min-width:max-content}
+
+  .subnav,.gwnav,.phasenav{overflow-x:auto;flex-wrap:nowrap;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .subnav::-webkit-scrollbar,.gwnav::-webkit-scrollbar,
+  .phasenav::-webkit-scrollbar{display:none}
+
+  /* Bez tohohle prohlížeč čeká 300 ms, jestli náhodou nepřijde dvojklik,
+     a celá appka působí líně. */
+  button,.nav button,#mnav button{touch-action:manipulation}
+  button.small{padding:8px 14px}
+
+  /* ---------- plovoucí spodní lišta ---------- */
+  #mnav{
+    display:flex;position:fixed;z-index:60;
+    left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));
+    height:var(--mnav-h);align-items:stretch;gap:2px;padding:6px;
+    border-radius:20px;
+    background:rgba(43,0,48,.93);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 10px 30px rgba(20,0,24,.42);
+  }
+  /* Šest dlaždic místo pěti: ikona i písmo o kousek dolů, jinak by se
+     „Poradce“ na úzkém telefonu oříznulo. */
+  #mnav button{
+    flex:1 1 0;min-width:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:3px;
+    background:none;border:0;border-radius:12px;padding:4px 1px;
+    color:#C0A0C8;font-family:var(--f);font-size:9px;font-weight:600;
+    letter-spacing:-.01em;
+    line-height:1;cursor:pointer;transition:background .15s,color .15s;
+  }
+  #mnav button svg{width:20px;height:20px;stroke:currentColor;fill:none;
+    stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+  /* Přehled je vstupní bod, ne jedna ze sekcí — tenká linka za ním to
+     drží vizuálně oddělené i po rozšíření lišty. */
+  #mnav button:first-child{position:relative}
+  #mnav button:first-child::after{content:'';position:absolute;right:-2px;
+    top:22%;bottom:22%;width:1px;background:rgba(255,255,255,.14)}
+
+  /* Nejužší telefony: popisky pryč, ikony zůstanou. */
+  @media(max-width:340px){
+    #mnav button span{display:none}
+    #mnav button svg{width:22px;height:22px}
+  }
+  #mnav button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;display:block}
+  #mnav button[aria-selected="true"]{color:#fff;background:rgba(255,255,255,.13)}
+  #mnav button[aria-selected="true"] svg{stroke:var(--mint-fill)}
+  #mnav button:active{transform:scale(.93)}
+
+  /* ---------- plachta „Více“ ----------
+     Zbylých pět sekcí a celý účet. Vyjíždí zezdola, protože palec je
+     dole — rozbalovací menu od horní lišty by se ovládalo hůř. */
+  #msheet{position:fixed;inset:0;z-index:70;display:none}
+  #msheet.on{display:block}
+  #msheet .scrim{position:absolute;inset:0;background:rgba(15,0,18,.5);
+    animation:mfade .18s ease}
+  #msheet .card{position:absolute;left:0;right:0;bottom:0;
+    background:var(--white);color:var(--charcoal);
+    border-radius:22px 22px 0 0;
+    padding:10px 14px calc(20px + env(safe-area-inset-bottom));
+    max-height:84vh;overflow-y:auto;
+    box-shadow:0 -14px 40px rgba(20,0,24,.34);
+    animation:msheetUp .22s cubic-bezier(.2,.8,.3,1)}
+  @keyframes msheetUp{from{transform:translateY(100%)}to{transform:none}}
+  @keyframes mfade{from{opacity:0}to{opacity:1}}
+  #msheet .grip{width:38px;height:4px;border-radius:2px;background:var(--line);
+    margin:2px auto 10px}
+  #msheet h3{font-family:var(--f-disp);font-size:10.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--mute);margin:14px 0 8px}
+  #msheet h3:first-of-type{margin-top:2px}
+  #msheet .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  /* Odkaz ven vypadá jako ostatní dlaždice, ale je to <a> — proto
+     jsou selektory na obojí. */
+  #msheet .mgrid button,
+  #msheet .mgrid a{display:flex;align-items:center;gap:9px;text-decoration:none;
+    background:var(--haze);border:0;border-radius:14px;padding:13px 12px;
+    font-family:var(--f);font-size:13px;font-weight:600;color:var(--charcoal);
+    text-align:left;cursor:pointer;min-width:0}
+  #msheet .mgrid button span,
+  #msheet .mgrid a span{overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  #msheet .mgrid button svg,
+  #msheet .mgrid a svg{width:18px;height:18px;stroke:currentColor;
+    fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+    flex:none;color:var(--mute)}
+  #msheet .mgrid button[aria-selected="true"]{background:var(--aubergine);
+    color:#fff}
+  #msheet .mgrid button[aria-selected="true"] svg{color:var(--mint-fill)}
+  .navout{display:none}
+  #msheet .mwho{display:flex;align-items:center;gap:8px;font-size:12.5px;
+    color:var(--mute);margin:0 0 8px}
+  #msheet .mwho b{color:var(--charcoal);font-weight:700;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+
+  /* ============================================================
+     SESTAVA NA JEDNU OBRAZOVKU
+
+     Hřiště bylo na telefonu tři obrazovky dlouhé: karta hráče měřila
+     136 px, čtyři řady tedy skoro 600 px — a nad nimi ještě hlavička
+     týmu a souhrn kola. Kdo chtěl vidět útok, musel scrollovat, a tím
+     ztratil obranu z očí. Přitom právě „jak vypadá celá sestava“ je
+     jediný důvod, proč se na tu záložku chodí.
+
+     Karta se proto zmenšuje na pětinu šířky. Pětina, ne třetina:
+     nejširší řada má pět hráčů (pětiobránci), a když se vejde ta,
+     vejdou se všechny — a všechny řady drží stejnou velikost karty.
+     Poměry uvnitř karty zůstávají, jen se všechno škáluje dolů:
+     pevné výšky řádků mřížky se tím neruší, takže karty v řadě jsou
+     pořád stejně vysoké i s hláškou „ještě nehrálo“.
+
+     Nová výška karty je 94 px, čtyři řady i s mezerami 400 px.
+     Se souhrnem kola se celá jedenáctka vejde pod ohyb.
+     ============================================================ */
+  .pitch{padding:12px 7px 14px;gap:8px;margin:12px 0}
+  .row{gap:5px}
+
+  .shirt{
+    width:calc(20% - 4px);max-width:78px;
+    padding:6px 3px 7px;border-radius:9px;
+    grid-template-rows:28px 13px 10px 20px 10px;
+  }
+  .shirt .kit{width:25px;height:27px}
+  .shirt .nm{font-size:10.5px}
+  .shirt .tm{font-size:7.5px;letter-spacing:.1em;text-indent:.1em}
+  .shirt .pts{font-size:18px}
+  .shirt .pts.wait{font-size:12px}
+  .shirt .mn{font-size:8px}
+  .shirt .fd{font-size:9px}
+  .shirt .cap{top:3px;right:3px;font-size:7.5px;padding:1px 3px;border-radius:3px}
+
+  /* Souhrn kola: tři čísla vedle sebe a vysvětlivka pod nimi. Velké
+     číslo si bralo 38 px výšky kvůli efektu, ne kvůli čitelnosti. */
+  .livebar{gap:8px 16px;padding:10px 12px 12px;margin:-2px 0 2px}
+  .livebar .big{font-size:24px}
+  .livebar b{font-size:16px}
+  .livebar span{font-size:9px;margin-top:2px}
+  .livebar .txt{flex-basis:100%;text-align:left;font-size:10.5px;line-height:1.35}
+
+  /* Hlavička týmu nad hřištěm. Šest údajů po 82 px se na 360px displeji
+     zalomilo do tří řad a odsunulo sestavu o dalších 120 px. */
+  .meta,.kpis{gap:10px 18px;margin-bottom:6px}
+  .meta div,.kpis div{min-width:0;flex:1 1 40%}
+  .meta .k,.kpis .k{font-size:9.5px;letter-spacing:.06em}
+  .meta .v,.kpis .v{font-size:17px}
+
+  /* Čtyři ceny vedle sebe se na telefonu zmenší na nečitelné sloupečky.
+     Dvě a dvě: jméno výherce se pak vejde celé. */
+  .awards.mini{grid-template-columns:1fr 1fr;gap:6px}
+  .awards.mini .award{padding:9px 10px 10px}
+  .awards.mini .who{font-size:12px}
+  .awards.mini .val{font-size:15px}
+
+  /* Na mobilu je .phead schovaná (řádky nesou popisky v data-l), takže
+     by na řazení nebylo kam kliknout. V režimu Celkem se proto vrací —
+     jako pruh tlačítek bez sloupce Hráč a bez rozpisu. */
+  .squadlist.flat .phead{display:grid;grid-template-columns:repeat(3,1fr);
+    gap:4px;padding:8px 10px}
+  .squadlist.flat .phead>span:not([data-sort]){display:none}
+  .squadlist.flat .phead [data-sort]{justify-content:center;
+    padding:5px 2px;border-radius:7px;background:var(--white);
+    border:1px solid var(--line);font-size:9.5px}
+  .squadlist.flat .phead [data-sort]:not([aria-sort="none"]){
+    background:var(--aubergine);border-color:var(--aubergine);color:#fff}
+
+  /* Zápas na telefonu: jména se nevejdou vedle sebe se skóre uprostřed,
+     tak jde skóre pod ně a karta se zúží na dva sloupce. */
+  .h2hm{grid-template-columns:1fr auto;gap:6px 10px;padding:10px 12px}
+  .h2hm .side b{font-size:12.5px;white-space:nowrap}
+  .h2hm.big .side b{font-size:14px}
+  .h2hm .sc{font-size:17px;grid-row:1/3;align-self:center}
+  .h2hm.big .sc{font-size:22px}
+  .h2hm .side.r{grid-column:1;text-align:left}
+  .h2hm .side.r::before{content:'vs ';font-family:var(--f-mono);
+    font-size:10px;color:var(--mute)}
+  table.h2ht th,table.h2ht td{padding:6px 4px;font-size:11.5px}
+
+  /* Zpravodaj na telefonu: filtr je vodorovný scroller (už ho má jako
+     .subnav), karty užší a úryvek kratší — tři řádky stačí na to,
+     aby bylo poznat, o čem článek je. */
+  .ncard{padding:11px 12px}
+  .ncard h4{font-size:14px}
+  .ncard p{font-size:12px;display:-webkit-box;-webkit-line-clamp:3;
+    -webkit-box-orient:vertical;overflow:hidden}
+  .nmeta{font-size:10.5px;gap:7px}
+
+  /* Poradce: diagnostika pod sebe, porovnání zůstává dvousloupcové —
+     je to jediné místo, kde dvě čísla vedle sebe dávají smysl číst. */
+  .advgrid{grid-template-columns:1fr;gap:8px}
+  .advbox{padding:11px 12px}
+  .advswap b{font-size:13.5px}
+  .advswap i{font-size:15px}
+  table.advcmp td,table.advcmp th{padding:5px 2px;font-size:11.5px}
+  table.advcmp th{width:42%;font-size:10.5px}
+
+  /* ---------- sestava jako spodní plachta ----------
+     Totéž okno jako na desktopu, jen přilepené dolů: palec je dole a
+     modální okno uprostřed obrazovky se na telefonu zavírá hůř, než
+     plachta, kterou lze odklepnout kdekoli nad ní. */
+  .sqm .card{left:0;right:0;bottom:0;top:auto;transform:none;
+    width:auto;max-width:none;border-radius:22px 22px 0 0;
+    max-height:86vh;padding:10px 14px calc(20px + env(safe-area-inset-bottom));
+    box-shadow:0 -14px 40px rgba(20,0,24,.34);
+    animation:sqUp .22s cubic-bezier(.2,.8,.3,1)}
+  @keyframes sqUp{from{transform:translateY(100%)}to{transform:none}}
+  .sqm .grip{display:block;width:38px;height:4px;border-radius:2px;
+    background:var(--line);margin:2px auto 10px;cursor:pointer}
+  .sqm .x{display:none}
+  .sqm h3{margin-right:0;font-size:15.5px}
+  .sqsum .big{font-size:22px}
+  .sqp{grid-template-columns:30px 1fr auto auto;gap:6px;padding:7px 6px}
+  .sqp b{font-size:13.5px}
+
+  /* Stav dat na úzkém displeji: dva řádky místo jednoho, ať se
+     vysvětlivka nemusí zkracovat do nesrozumitelna. */
+  .statusbar .wrap{padding:6px 0;gap:6px;font-size:11.5px}
+  .statusbar .sbnote{width:100%;order:5}
+  .statusbar .sbspace{display:none}
+
+  /* Dva kádry vedle sebe se na telefon nevejdou čitelně — pod sebe. */
+  .sqcmp{grid-template-columns:1fr}
+  .sqcol + .sqcol{border-top:1px solid var(--line);padding-top:10px}
+  .h2hm .bilance{position:static;transform:none;display:block;
+    text-align:center;margin-top:4px}
+
+  /* Na telefonu navigaci obstarává spodní lišta — segment i hledání
+     v hlavičce by jen ubíraly místo názvu ligy. Stav kola zůstává
+     v samostatném pruhu pod hlavičkou, kde se vejde celý.
+
+     Bez @media schválně: přepínač zobrazení přepisuje media atribut
+     na <link>, takže „mobilní verze na širokém monitoru“ musí platit
+     taky — a vnořený dotaz by ji vypnul. */
+  #topnav,.bar .cmd,.bar .state,.barspace{display:none}
+  /* Iniciály v kolečku zabírají v úzké liště víc než název týmu, který
+     se dá zkrátit — na telefonu proto zůstává původní podoba. */
+  .bar .who b{width:auto;height:auto;border:0;background:none;border-radius:0}
+  .bar .who b .tn{display:inline}
