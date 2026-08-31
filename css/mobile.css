@@ -1,71 +1,109 @@
 /* Minileague Squad Check
 
-   Mobilní skořápka do 720 px: kompaktní horní lišta,
-   plovoucí spodní navigace, plachta „Více“, scrollery kolem tabulek.
+   The mobile shell up to 720 px: a compact top bar, floating bottom
+   navigation, the "More" sheet and scrollers around tables.
    <link id="mqM">, viz applyView() v js/ui.js.
    ============================================================ */
 
 :root{--mnav-h:62px}
   html{-webkit-text-size-adjust:100%}
 
-  /* Pod obsahem musí zůstat místo na plovoucí lištu, jinak by poslední
-     řádek tabulky skončil pod ní a nešel přečíst. */
+  /* Room has to be left under the content for the floating bar, or the
+     last table row would end up beneath it and be unreadable. */
   body{padding-bottom:calc(var(--mnav-h) + env(safe-area-inset-bottom) + 18px)}
   .wrap{padding:0 12px}
 
-  /* ---------- horní lišta ----------
-     Do 400 px se nevejde logo, podtitul, odpočet, jméno a čtyři tlačítka.
-     Zůstává jen to, co člověk potřebuje vidět bez klikání: značka a
-     odpočet. Účet a přepínače se stěhují do plachty „Více“. */
+  /* ---------- top bar ----------
+     A logo, a subtitle, a countdown, a name and four buttons do not fit in
+     400 px. Only what has to be visible without a click stays: the mark and
+     the countdown. The account and the switches move into the "More" sheet. */
   .bar{padding-top:env(safe-area-inset-top)}
-  .bar .wrap{height:54px;gap:8px;padding:0 12px}
-  .brand{flex:0 1 auto;min-width:0;overflow:hidden}
-  .brand img{width:26px;height:26px}
-  /* Na telefonu jeden řádek: dva by v 54px liště nechaly jméno týmu
-     bez místa. Ořízne se tedy koncem názvu, ne jeho polovinou. */
-  .brand .tx{font-size:12px;letter-spacing:.02em;-webkit-line-clamp:1;
-    max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .bar .cd{margin-left:auto;padding:3px 9px;border-radius:9px}
-  .bar .cd .lbl{font-size:7px;letter-spacing:.12em}
-  .bar .cd .val{font-size:12.5px}
+  .bar .wrap{height:56px;gap:10px;padding:0 12px}
+  .bar .brand{flex:1 1 auto;min-width:0;overflow:hidden}
+  .bar .brand img{width:28px;height:28px}
+  .bar .btxt{min-width:0;flex:1;display:block}
+
+  /* The league name comes back on a phone. The selector has to be as strong
+     as `.bar .brand .tx{display:none}` in app.css (the rule for a narrow
+     desktop, where the name gives way to the segment) — otherwise that would
+     win and only the trophy would be left in the header.
+
+     One line, clipped at the end: a two-line name would leave no room in a
+     56px bar for the gameweek state under it. */
+  .bar .brand .tx{display:block;font-size:13px;line-height:1.15;
+    letter-spacing:.01em;-webkit-line-clamp:1;max-width:none;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* The `long` class is added to long names because of the desktop segment,
+     which takes room beside them. On a phone there is no segment, so the
+     name can stretch across the whole bar. */
+  .bar .brand .tx.long{font-size:13px;letter-spacing:.01em;max-width:none}
+
+  /* Gameweek state and countdown on one line under the name. It replaces the
+     whole status bar, which took two rows below the header. */
+  .bar .brandsub{display:block;margin-top:2px;font-family:var(--f-mono);
+    font-size:10.5px;line-height:1.2;color:var(--gold-lift);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar .brandsub[hidden]{display:none}
+
+  .bar .cd{display:none}
+
+  /* On a phone the data status belongs in the header, not in its own bar. */
+  .statusbar{display:none!important}
   .bar .who{margin-left:0;gap:5px;flex:none}
-  /* Jméno týmu a správa účtu jdou do plachty „Více“. Přepínač
-     zobrazení ne — je to jediná cesta, jak se z mobilní verze dostat
-     na desktopovou, a schovávat ji o dvě kliknutí hlouběji znamená,
-     že ji člověk na telefonu nenajde. */
+  /* The team name and account management go into the "More" sheet. */
   .bar .who b,#logout,#gauth{display:none!important}
+  /* One button stays in the bar: reload. The view and dark mode are switched
+     in the "More" sheet — there is no room for three circles next to the
+     league name, and the name is what people look at. */
+  .bar #viewmode,.bar #theme{display:none}
   .bar .who button.small.icon{padding:4px 7px;min-width:28px;font-size:13px}
 
-  /* Vodorovná navigace se nahrazuje spodní lištou. */
+  /* The horizontal navigation is replaced by the bottom bar. */
   .navbar{display:none}
 
   .rail .wrap{height:32px;padding-top:16px;padding-bottom:5px}
   .railkey{font-size:9.5px;gap:10px;padding-bottom:6px}
 
   /* ---------- obsah ----------
-     28px odsazení panelu je na 360px displeji osmina šířky. */
+     A 28px panel inset is an eighth of the width on a 360px display. */
   .panel{padding:18px 14px;margin:10px 0 14px;border-radius:18px}
+
+  /* The explanatory sentence above each panel ("Standings, how the table has
+     moved…") took two or three rows above the first number. On desktop there
+     is room for it; on a phone it pushed the content below the fold — and it
+     is read once anyway. The "Refresh" button goes with it: ⟳ in the header
+     does the same and is visible everywhere.
+
+     Deliberately only direct children of the panel, so it does not catch
+     tabulek a karet. */
+  .panel>.hint,.panel>.panelhead{display:none}
   h2{font-size:14px;margin:24px 0 8px}
   .panel table{font-size:12px}
   .tipbox{font-size:12px;padding:11px 13px}
 
-  /* Široké tabulky se nezalamují, jen ujedou do strany — a scroller
-     jde přes okraj panelu, aby bylo poznat, že tam něco pokračuje. */
+  /* Wide tables do not wrap, they slide sideways — and the scroller runs past
+     the panel edge, so it is visible that something continues. */
   .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;
     margin:0 -14px;padding:0 14px}
   .tscroll>table{min-width:max-content}
 
   .subnav,.gwnav,.phasenav{overflow-x:auto;flex-wrap:nowrap;
     scrollbar-width:none;-webkit-overflow-scrolling:touch}
+
+  /* The tabs reach the panel edges so the line under them reads as a content
+     divider, not an underlined paragraph. A tighter gap than on desktop: four
+     fit on a 360px display instead of two and a half. */
+  .subnav{gap:16px;margin:0 -14px 14px;padding:0 14px;font-size:12.5px}
+  .sub-btn{font-size:12.5px;padding:9px 0 10px}
   .subnav::-webkit-scrollbar,.gwnav::-webkit-scrollbar,
   .phasenav::-webkit-scrollbar{display:none}
 
-  /* Bez tohohle prohlížeč čeká 300 ms, jestli náhodou nepřijde dvojklik,
-     a celá appka působí líně. */
+  /* Without this the browser waits 300 ms in case a double tap arrives, and
+     the whole app feels sluggish. */
   button,.nav button,#mnav button{touch-action:manipulation}
   button.small{padding:8px 14px}
 
-  /* ---------- plovoucí spodní lišta ---------- */
+  /* ---------- floating bottom bar ---------- */
   #mnav{
     display:flex;position:fixed;z-index:60;
     left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));
@@ -76,8 +114,8 @@
     border:1px solid rgba(255,255,255,.10);
     box-shadow:0 10px 30px rgba(20,0,24,.42);
   }
-  /* Šest dlaždic místo pěti: ikona i písmo o kousek dolů, jinak by se
-     „Poradce“ na úzkém telefonu oříznulo. */
+  /* Six tiles instead of five: the icon and the type go down a notch, or a
+     longer label would be clipped on a narrow phone. */
   #mnav button{
     flex:1 1 0;min-width:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:3px;
@@ -89,13 +127,13 @@
   #mnav button svg{width:20px;height:20px;stroke:currentColor;fill:none;
     stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 
-  /* Přehled je vstupní bod, ne jedna ze sekcí — tenká linka za ním to
-     drží vizuálně oddělené i po rozšíření lišty. */
+  /* Home is the entry point, not one of the sections — a thin line after it
+     keeps that visually separate even in a wider bar. */
   #mnav button:first-child{position:relative}
   #mnav button:first-child::after{content:'';position:absolute;right:-2px;
     top:22%;bottom:22%;width:1px;background:rgba(255,255,255,.14)}
 
-  /* Nejužší telefony: popisky pryč, ikony zůstanou. */
+  /* The narrowest phones: labels go, icons stay. */
   @media(max-width:340px){
     #mnav button span{display:none}
     #mnav button svg{width:22px;height:22px}
@@ -106,9 +144,10 @@
   #mnav button[aria-selected="true"] svg{stroke:var(--mint-fill)}
   #mnav button:active{transform:scale(.93)}
 
-  /* ---------- plachta „Více“ ----------
-     Zbylých pět sekcí a celý účet. Vyjíždí zezdola, protože palec je
-     dole — rozbalovací menu od horní lišty by se ovládalo hůř. */
+  /* ---------- the "More" sheet ----------
+     The remaining sections and the account. It slides up from the bottom,
+     because that is where the thumb is — a menu dropping from the top bar
+     would be harder to use. */
   #msheet{position:fixed;inset:0;z-index:70;display:none}
   #msheet.on{display:block}
   #msheet .scrim{position:absolute;inset:0;background:rgba(15,0,18,.5);
@@ -128,8 +167,8 @@
     text-transform:uppercase;color:var(--mute);margin:14px 0 8px}
   #msheet h3:first-of-type{margin-top:2px}
   #msheet .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  /* Odkaz ven vypadá jako ostatní dlaždice, ale je to <a> — proto
-     jsou selektory na obojí. */
+  /* The outbound link looks like the other tiles but is an <a> — hence
+     selectors for both. */
   #msheet .mgrid button,
   #msheet .mgrid a{display:flex;align-items:center;gap:9px;text-decoration:none;
     background:var(--haze);border:0;border-radius:14px;padding:13px 12px;
@@ -154,21 +193,21 @@
   /* ============================================================
      SESTAVA NA JEDNU OBRAZOVKU
 
-     Hřiště bylo na telefonu tři obrazovky dlouhé: karta hráče měřila
-     136 px, čtyři řady tedy skoro 600 px — a nad nimi ještě hlavička
-     týmu a souhrn kola. Kdo chtěl vidět útok, musel scrollovat, a tím
-     ztratil obranu z očí. Přitom právě „jak vypadá celá sestava“ je
-     jediný důvod, proč se na tu záložku chodí.
+     The pitch was three screens long on a phone: a player card was 136 px,
+     so four rows came to almost 600 px — with the team header and the
+     gameweek summary above them. Anyone wanting to see the attack had to
+     scroll, losing sight of the defence. Yet "what the whole team looks
+     like" is the only reason to visit that tab.
 
-     Karta se proto zmenšuje na pětinu šířky. Pětina, ne třetina:
-     nejširší řada má pět hráčů (pětiobránci), a když se vejde ta,
-     vejdou se všechny — a všechny řady drží stejnou velikost karty.
-     Poměry uvnitř karty zůstávají, jen se všechno škáluje dolů:
-     pevné výšky řádků mřížky se tím neruší, takže karty v řadě jsou
-     pořád stejně vysoké i s hláškou „ještě nehrálo“.
+     So the card shrinks to a fifth of the width. A fifth, not a third: the
+     widest row has five players (five at the back), and if that fits, they
+     all fit — and every row keeps the same card size. The proportions inside
+     the card stay, everything just scales down: the fixed grid row heights
+     are not dropped, so cards in a row are still equally tall even with a
+     "yet to play" note.
 
-     Nová výška karty je 94 px, čtyři řady i s mezerami 400 px.
-     Se souhrnem kola se celá jedenáctka vejde pod ohyb.
+     The new card height is 94 px, four rows with gaps 400 px. Together with
+     the gameweek summary the whole XI fits above the fold.
      ============================================================ */
   .pitch{padding:12px 7px 14px;gap:8px;margin:12px 0}
   .row{gap:5px}
@@ -187,31 +226,32 @@
   .shirt .fd{font-size:9px}
   .shirt .cap{top:3px;right:3px;font-size:7.5px;padding:1px 3px;border-radius:3px}
 
-  /* Souhrn kola: tři čísla vedle sebe a vysvětlivka pod nimi. Velké
-     číslo si bralo 38 px výšky kvůli efektu, ne kvůli čitelnosti. */
+  /* The gameweek summary: three numbers side by side with a note under them.
+     The big number took 38 px of height for effect, not for legibility. */
   .livebar{gap:8px 16px;padding:10px 12px 12px;margin:-2px 0 2px}
   .livebar .big{font-size:24px}
   .livebar b{font-size:16px}
   .livebar span{font-size:9px;margin-top:2px}
   .livebar .txt{flex-basis:100%;text-align:left;font-size:10.5px;line-height:1.35}
 
-  /* Hlavička týmu nad hřištěm. Šest údajů po 82 px se na 360px displeji
-     zalomilo do tří řad a odsunulo sestavu o dalších 120 px. */
+  /* The team header above the pitch. Six items of 82 px wrapped into three
+     rows on a 360px display and pushed the lineup down another 120 px. */
   .meta,.kpis{gap:10px 18px;margin-bottom:6px}
   .meta div,.kpis div{min-width:0;flex:1 1 40%}
   .meta .k,.kpis .k{font-size:9.5px;letter-spacing:.06em}
   .meta .v,.kpis .v{font-size:17px}
 
-  /* Čtyři ceny vedle sebe se na telefonu zmenší na nečitelné sloupečky.
-     Dvě a dvě: jméno výherce se pak vejde celé. */
-  .awards.mini{grid-template-columns:1fr 1fr;gap:6px}
-  .awards.mini .award{padding:9px 10px 10px}
+  /* Four awards side by side shrink into unreadable columns on a phone. Two
+     and two: the winner's name then fits in full. */
+  /* On mobile the rows do not wrap anywhere, they just tighten up. */
+  .awards.mini .award{padding:8px 10px;gap:9px}
+  .awards.mini .medal{width:26px;height:26px;font-size:13px}
   .awards.mini .who{font-size:12px}
   .awards.mini .val{font-size:15px}
 
-  /* Na mobilu je .phead schovaná (řádky nesou popisky v data-l), takže
-     by na řazení nebylo kam kliknout. V režimu Celkem se proto vrací —
-     jako pruh tlačítek bez sloupce Hráč a bez rozpisu. */
+  /* On mobile .phead is hidden (the rows carry labels in data-l), so there
+     would be nothing to click for sorting. In the whole-squad view it comes
+     back — as a strip of buttons without the Player column or the fixtures. */
   .squadlist.flat .phead{display:grid;grid-template-columns:repeat(3,1fr);
     gap:4px;padding:8px 10px}
   .squadlist.flat .phead>span:not([data-sort]){display:none}
@@ -221,8 +261,9 @@
   .squadlist.flat .phead [data-sort]:not([aria-sort="none"]){
     background:var(--aubergine);border-color:var(--aubergine);color:#fff}
 
-  /* Zápas na telefonu: jména se nevejdou vedle sebe se skóre uprostřed,
-     tak jde skóre pod ně a karta se zúží na dva sloupce. */
+  /* A fixture on a phone: the names do not fit beside each other with the
+     score between them, so the score goes underneath and the card narrows to
+     two columns. */
   .h2hm{grid-template-columns:1fr auto;gap:6px 10px;padding:10px 12px}
   .h2hm .side b{font-size:12.5px;white-space:nowrap}
   .h2hm.big .side b{font-size:14px}
@@ -233,17 +274,17 @@
     font-size:10px;color:var(--mute)}
   table.h2ht th,table.h2ht td{padding:6px 4px;font-size:11.5px}
 
-  /* Zpravodaj na telefonu: filtr je vodorovný scroller (už ho má jako
-     .subnav), karty užší a úryvek kratší — tři řádky stačí na to,
-     aby bylo poznat, o čem článek je. */
+  /* The newsletter on a phone: the filter is a horizontal scroller (it
+     already has one as .subnav), the cards are narrower and the excerpt
+     shorter — three lines are enough to tell what an article is about. */
   .ncard{padding:11px 12px}
   .ncard h4{font-size:14px}
   .ncard p{font-size:12px;display:-webkit-box;-webkit-line-clamp:3;
     -webkit-box-orient:vertical;overflow:hidden}
   .nmeta{font-size:10.5px;gap:7px}
 
-  /* Poradce: diagnostika pod sebe, porovnání zůstává dvousloupcové —
-     je to jediné místo, kde dvě čísla vedle sebe dávají smysl číst. */
+  /* Comparisons stay two-column — it is the one place where two numbers side
+     by side are worth reading together. */
   .advgrid{grid-template-columns:1fr;gap:8px}
   .advbox{padding:11px 12px}
   .advswap b{font-size:13.5px}
@@ -251,10 +292,10 @@
   table.advcmp td,table.advcmp th{padding:5px 2px;font-size:11.5px}
   table.advcmp th{width:42%;font-size:10.5px}
 
-  /* ---------- sestava jako spodní plachta ----------
-     Totéž okno jako na desktopu, jen přilepené dolů: palec je dole a
-     modální okno uprostřed obrazovky se na telefonu zavírá hůř, než
-     plachta, kterou lze odklepnout kdekoli nad ní. */
+  /* ---------- the squad as a bottom sheet ----------
+     The same modal as on desktop, just stuck to the bottom: the thumb is down
+     there, and a dialog in the middle of the screen is harder to dismiss on a
+     phone than a sheet that can be tapped away anywhere above it. */
   .sqm .card{left:0;right:0;bottom:0;top:auto;transform:none;
     width:auto;max-width:none;border-radius:22px 22px 0 0;
     max-height:86vh;padding:10px 14px calc(20px + env(safe-area-inset-bottom));
@@ -269,27 +310,27 @@
   .sqp{grid-template-columns:30px 1fr auto auto;gap:6px;padding:7px 6px}
   .sqp b{font-size:13.5px}
 
-  /* Stav dat na úzkém displeji: dva řádky místo jednoho, ať se
-     vysvětlivka nemusí zkracovat do nesrozumitelna. */
+  /* Data status on a narrow display: two rows instead of one, so the note
+     does not have to be shortened into nonsense. */
   .statusbar .wrap{padding:6px 0;gap:6px;font-size:11.5px}
   .statusbar .sbnote{width:100%;order:5}
   .statusbar .sbspace{display:none}
 
-  /* Dva kádry vedle sebe se na telefon nevejdou čitelně — pod sebe. */
+  /* Two squads side by side do not fit legibly on a phone — stack them. */
   .sqcmp{grid-template-columns:1fr}
   .sqcol + .sqcol{border-top:1px solid var(--line);padding-top:10px}
   .h2hm .bilance{position:static;transform:none;display:block;
     text-align:center;margin-top:4px}
 
-  /* Na telefonu navigaci obstarává spodní lišta — segment i hledání
-     v hlavičce by jen ubíraly místo názvu ligy. Stav kola zůstává
-     v samostatném pruhu pod hlavičkou, kde se vejde celý.
+  /* On a phone the bottom bar handles navigation — the segment and the search
+     in the header would only take room from the league name. The gameweek
+     state stays in its own bar under the header, where it fits in full.
 
-     Bez @media schválně: přepínač zobrazení přepisuje media atribut
-     na <link>, takže „mobilní verze na širokém monitoru“ musí platit
-     taky — a vnořený dotaz by ji vypnul. */
+     Deliberately without @media: the view switch rewrites the media attribute
+     on the <link>, so "the mobile version on a wide monitor" has to hold too
+     — and a nested query would switch it off. */
   #topnav,.bar .cmd,.bar .state,.barspace{display:none}
-  /* Iniciály v kolečku zabírají v úzké liště víc než název týmu, který
-     se dá zkrátit — na telefonu proto zůstává původní podoba. */
+  /* Initials in a circle take more room in a narrow bar than a team name,
+     which can be clipped — so on a phone the original form stays. */
   .bar .who b{width:auto;height:auto;border:0;background:none;border-radius:0}
   .bar .who b .tn{display:inline}

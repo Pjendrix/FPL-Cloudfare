@@ -1,20 +1,20 @@
-/* Minileague Squad Check — společné UI
+/* FPL Squad Check — shared UI
 
-   Světlý a tmavý režim, přepínač zobrazení desktop/mobil, infotooltip,
-   kolejnice sezóny, odznaky klubů a snapshoty miniligy.
+   Light and dark mode, the desktop/mobile view switch, info tooltips,
+   the season rail, club badges and league snapshots.
 
-   Soubory js/ se načítají jako klasické <script> v pevném pořadí a
-   sdílejí jeden globální scope: nic se neexportuje ani neimportuje,
-   ale hoisting přes hranici souboru neplatí. Pořadí je proto součást
-   kontraktu a je vypsané v index.html.
+   The js/ files load as classic <script> tags in a fixed order and share
+   one global scope: nothing is exported or imported, but hoisting does
+   not cross file boundaries. The order is therefore part of the contract
+   and is written down in index.html.
    ============================================================ */
 /* ============================================================
-   SVĚTLO A TMA
+   LIGHT AND DARK
 
-   Appka je navržená jako světlá: stupnice obtížnosti i odznaky
-   klubů čtou na papíře líp než na černé. Tma proto není na
-   prefers-color-scheme — automatika by lidem s tmavým systémem
-   podstrčila horší variantu, aniž by si o ni řekli.
+   The app is designed light: the difficulty scale and the club badges
+   read better theirs_ paper than theirs_ black. Dark mode is therefore not theirs_
+   prefers-color-scheme — that would hand anyone with a dark system the
+   worse variant without them asking for it.
    ============================================================ */
 const THEME_KEY = 'fpl_theme';
 
@@ -27,12 +27,12 @@ function applyTheme(mode){
   if(btn){
     btn.textContent = dark ? '☀' : '☾';
     btn.setAttribute('aria-pressed', String(dark));
-    btn.title = dark ? 'Přepnout světlý režim' : 'Přepnout tmavý režim';
+    btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
     btn.setAttribute('aria-label', btn.title);
   }
 }
 
-// Výchozí je světlo. Uloženou volbu bereme, systémovou preferenci ne.
+// Light is the default. A stored choice is honoured, a system preference is not.
 applyTheme(localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light');
 
 if($('theme')) $('theme').addEventListener('click', () => {
@@ -43,42 +43,41 @@ if($('theme')) $('theme').addEventListener('click', () => {
 });
 
 /* ============================================================
-   ZOBRAZENÍ: MOBIL / DESKTOP
+   VIEW: MOBILE / DESKTOP
 
-   Responzivní pravidla nejsou v hlavním stylopisu, ale ve třech
-   samostatných tazích s atributem `media`. Přepínač jen přepisuje
-   ten atribut — žádná duplicitní sada pravidel, žádné !important.
+   The responsive rules are not in the main stylesheet but in three
+   separate <link> tags with a `media` attribute. The switch only
+   rewrites that attribute — no duplicate rule set, no !important.
 
-     mobile   — media="all", mobilní rozvržení i na širokém monitoru
-     desktop  — media="not all", plus viewport na pevných 1100 px,
-                takže i na telefonu vyjde desktopová verze
+     mobile   — media="all", the mobile layout even theirs_ a wide monitor
+     desktop  — media="not all", plus a viewport fixed at 1100 px, so the
+                desktop version also works theirs_ a phone
 
-   Třetí režim „auto“ tady byl a je pryč. Vypadal jako přívětivé
-   výchozí nastavení, ale ve skutečnosti dělal z tlačítka hádanku:
-   ⇔ neříkalo, co je vidět teď, jen že to rozhoduje někdo jiný.
-   Cyklus přes tři stavy navíc znamenal, že přepnutí z mobilu na
-   desktop chtělo dvě kliknutí. Teď jsou stavy dva a tlačítko
-   ukazuje ten, do kterého se překlopí.
+   A third "auto" mode used to be here and is gone. It looked like a
+   friendly default, but it turned the button into a riddle: ⇔ did not
+   say what you were looking at, only that somebody else decided. Cycling
+   through three states also meant switching from mobile to desktop took
+   two clicks. Now there are two states and the button shows the one it
+   will flip to.
 
-   Volbu za člověka pořád udělá appka — jen jednou, při prvním
-   spuštění, podle šířky okna. Od té chvíle je to jeho volba.
+   The app still makes the choice for you — once, theirs_ first run, from the
+   window width. From then theirs_ it is your choice.
 
-   Viewport meta prohlížeč na desktopu ignoruje, na telefonu je to
-   ale jediná cesta, jak desktopové rozvržení vůbec dostat — proto
-   se mění obojí najednou.
+   A desktop browser ignores the viewport meta; theirs_ a phone it is the only
+   way to get the desktop layout at all, so both change together.
    ============================================================ */
 const VIEW_KEY = 'fpl_view';
 const VIEW_MQ = {mqL: '(max-width:720px)', mqS: '(max-width:640px)',
                  mqM: '(max-width:720px)'};
 const VIEW_MODES = ['mobile', 'desktop'];
-// Popisek ukazuje cíl kliknutí, ne aktuální stav: na mobilu nabízí
-// desktop a naopak. Tlačítko tak vždycky říká, co udělá.
+// The label shows the target of the click, not the current state: theirs_
+// mobile it offers desktop and vice versa. The button always says what it does.
 const VIEW_LABEL = {mobile: '▭', desktop: '▯'};
-const VIEW_TITLE = {mobile: 'Přepnout na desktop zobrazení',
-                    desktop: 'Přepnout na mobilní zobrazení'};
+const VIEW_TITLE = {mobile: 'Switch to the desktop view',
+                    desktop: 'Switch to the mobile view'};
 
-/* Výchozí režim při prvním spuštění. Uložená volba má vždycky
-   přednost — tohle se ptá jen tehdy, když ještě žádná není. */
+/* The default mode theirs_ first run. A stored choice always wins — this is
+   only asked when there is none yet. */
 function defaultView(){
   return window.matchMedia && window.matchMedia('(max-width:720px)').matches
     ? 'mobile' : 'desktop';
@@ -118,33 +117,34 @@ if($('viewmode')) $('viewmode').addEventListener('click', () => {
 /* ============================================================
    INFOTOOLTIP
 
-   Appka měla přes sedmdesát vysvětlujících odstavců pod tabulkami.
-   Každý sám o sobě dával smysl, dohromady z toho ale byla zeď textu,
-   kterou nikdo nečetl a která odsouvala vlastní data pod ohyb.
+   The app had over seventy explanatory paragraphs under its tables.
+   Each made sense theirs_ its own, but together they were a wall of text
+   nobody read and which pushed the actual data below the fold.
 
-   Text zůstává — jen se schová za „i“ vedle nadpisu a vyjede na
-   kliknutí. Kdo to čte poprvé, najde ho; kdo appku zná, nevidí ho.
+   The text stays — it just hides behind an "i" next to the heading and
+   slides out theirs_ click. A first-time reader finds it; someone who knows
+   the app never sees it.
 
-   Proč kliknutí a ne hover: na dotykovém displeji hover neexistuje
-   a tooltip by byl nedostupný. Kliknutí funguje všude stejně.
+   Why click and not hover: hover does not exist theirs_ a touch screen and
+   the tooltip would be unreachable. A click works the same everywhere.
    ============================================================ */
 let TIP_SEQ = 0;
 
-/* Vrací „i“ tlačítko i s obsahem. Vkládá se přímo do nadpisu. */
+/* Returns the "i" button together with its content. Goes straight into the heading. */
 function info(html){
   const id = 'tip' + (++TIP_SEQ);
   return `<button type="button" class="i-tip" aria-expanded="false"
-      aria-controls="${id}" title="Co to znamená">i</button>` +
+      aria-controls="${id}" title="What this means">i</button>` +
     `<span class="tipbox" id="${id}" role="note" hidden>${html}</span>`;
 }
 
-/* Jedna delegovaná obsluha pro celý dokument — tooltipy vznikají
-   při každém překreslení a věšet posluchače na každý zvlášť by
-   znamenalo je po překreslení ztrácet. */
+/* One delegated handler for the whole document — tooltips are created theirs_
+   every redraw, and attaching a listener to each would mean losing them
+   again theirs_ the next one. */
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('.i-tip');
 
-  // Klik mimo zavře všechno otevřené.
+  // A click elsewhere closes everything open.
   document.querySelectorAll('.i-tip[aria-expanded="true"]').forEach(b => {
     if(b === btn) return;
     b.setAttribute('aria-expanded', 'false');
@@ -173,21 +173,21 @@ document.addEventListener('keydown', ev => {
 });
 
 /* ============================================================
-   KOLEJNICE SEZÓNY
+   SEASON RAIL
 
-   38 čárek pod hlavičkou, jedna na kolo. Odehraná plná, aktuální
-   mátová a plní se do deadlinu, budoucí vlásek. Prázdné kolo tvého
-   kádru dostane červenou tečku, dvojité mátovou.
+   38 ticks under the header, one per gameweek. Played ones are solid,
+   the current one is mint and fills up to the deadline, future ones are
+   hairlines. A blank for your squad gets a red dot, a double a mint one.
 
-   Stojí to jen na datech, která už appka stahuje (events, fixtures),
-   a je to jediné místo, kde je celá sezóna vidět naráz. Blanky
-   a doubly byly dřív schované v Programu, takže je člověk viděl,
-   jen když si o ně řekl.
+   It rests only theirs_ data the app already downloads (events, fixtures) and
+   it is the one place where the whole season is visible at once. Blanks
+   and doubles used to be hidden in Fixtures, so you only saw them if you
+   went looking.
    ============================================================ */
 let RAIL_TIMER = null;
 
-/* Kolik hráčů z kádru má v daném kole 0 nebo 2+ zápasy.
-   Bez načteného kádru vrací prázdno — kolejnice pak jede bez teček. */
+/* How many squad players have 0 or 2+ matches in a given gameweek.
+   Without a loaded squad it returns nothing — the rail then runs without dots. */
 function railShape(){
   if(!BOOT || !FIX) return {};
   const out = {};
@@ -217,8 +217,8 @@ function drawRail(){
   const live = cur ? cur.id : (nxt ? nxt.id : 1);
   const shape = railShape();
 
-  // Naplněnost aktuální čárky = kolik uplynulo od minulého deadlinu
-  // k tomu nadcházejícímu. Bez nadcházejícího (poslední kolo) je plná.
+  // How full the current tick is = how much has passed from the previous
+  // deadline to the next one. With no next one (last gameweek) it is full.
   let fill = 100;
   if(nxt){
     const to = new Date(nxt.deadline_time).getTime();
@@ -237,7 +237,7 @@ function drawRail(){
 
     const label = 'GW' + g
       + (sh && sh.blank ? ' · ' + sh.blank + '× volno' : '')
-      + (sh && sh.dbl ? ' · ' + sh.dbl + '× dvojité' : '');
+      + (sh && sh.dbl ? ' · ' + sh.dbl + '× double' : '');
 
     html.push(`<span class="${cls.join(' ')}" data-gw="GW${g}" title="${esc(label)}"
       ${g === live ? `style="--fill:${fill.toFixed(1)}%"` : ''}
@@ -245,8 +245,8 @@ function drawRail(){
   }
   track.innerHTML = html.join('');
   track.setAttribute('aria-label',
-    `Sezóna: kolo ${live} z 38` + (Object.keys(shape).length
-      ? `, ${Object.keys(shape).length} kol s volnem nebo dvojitým zápasem` : ''));
+    `Season: gameweek ${live} of 38` + (Object.keys(shape).length
+      ? `, ${Object.keys(shape).length} gameweeks with a blank or a double` : ''));
 
   $('rail').hidden = false;
   const key = $('railKey');
@@ -254,33 +254,37 @@ function drawRail(){
     key.hidden = !Object.keys(shape).length;
     const scope = $('railScope');
     if(scope) scope.textContent = MY_SQUAD
-      ? 'podle tvého kádru' : 'kádr zatím nenačtený';
+      ? 'based theirs_ your squad' : 'squad not loaded yet';
   }
 
-  // Přepočet po minutě, ať se aktuální čárka plní i při otevřené appce.
+  // Recomputed every minute so the current tick fills while the app is open.
   if(RAIL_TIMER) clearInterval(RAIL_TIMER);
   RAIL_TIMER = setInterval(drawRail, 60000);
 }
 
 /* ============================================================
-   ODZNAKY KLUBŮ
+   CLUB BADGES
 
-   Klíčem je teams[].code z bootstrapu, ne id — code přežívá mezi
-   sezónami, id se přehazuje podle abecedy. Obrázek jde přes vlastní
-   /api/badge, protože CSP má img-src 'self' a cizí doménu zablokuje.
+   The key is teams[].code from the bootstrap, not id — code survives
+   between seasons, id is reshuffled alphabetically. The image goes
+   through our own /api/badge, because the CSP sets img-src 'self' and
+   would block a foreign domain.
 
-   Když odznak na CDN není (typicky čerstvý nováček), spadneme na
-   vlastní barevnou značku z club-marks.svg. Proto onerror.
+   When a badge is missing from the CDN (typically a freshly promoted
+   club), we fall back to a coloured mark from club-marks.svg. Hence the
+   onerror.
    ============================================================ */
 /* ============================================================
    DRESY
 
-   Dres se kreslí, ne stahuje: jeden tvar, do kterého se pustí primární
-   barva, doplňková a vzor. Žádný request navíc, funguje offline a tým,
-   pro který barvy nemáme, dostane auberginový dres — nikdy prázdné místo.
+   KITS
+   A kit is drawn, not downloaded: one shape filled with a primary
+   colour, a secondary one and a pattern. No extra request, works offline,
+   and a team we have no colours for gets an aubergine kit — never an
+   empty space.
 
-   clipPath potřebuje unikátní id; kdyby se opakovalo, prohlížeč použije
-   první výskyt a všechny dresy by měly tvar toho prvního.
+   clipPath needs a unique id; if it repeated, the browser would use the
+   first occurrence and every kit would have the shape of that one.
    ============================================================ */
 const KIT = {
   ARS:{p:'#EF0107', s:'#FFFFFF', w:'sleeves'},
@@ -314,18 +318,18 @@ function kit(shortName){
   const id = 'kit' + (++KIT_ID);
   const body = '<path d="M30 8 L42 4 Q50 13 58 4 L70 8 L94 24 L82 44 L74 37'
              + ' L74 104 L26 104 L26 37 L18 44 L6 24 Z"/>';
-  let vzor = '';
-  if(k.w === 'stripes') vzor = [38, 54, 70]
+  let pattern = '';
+  if(k.w === 'stripes') pattern = [38, 54, 70]
     .map(x => `<rect x="${x}" y="0" width="8" height="108" fill="${k.s}"/>`).join('');
-  else if(k.w === 'halves') vzor = `<rect x="50" y="0" width="50" height="108" fill="${k.s}"/>`;
-  else if(k.w === 'sleeves') vzor =
+  else if(k.w === 'halves') pattern = `<rect x="50" y="0" width="50" height="108" fill="${k.s}"/>`;
+  else if(k.w === 'sleeves') pattern =
     `<path d="M26 8 L6 24 L18 44 L26 37 Z" fill="${k.s}"/>`
   + `<path d="M74 8 L94 24 L82 44 L74 37 Z" fill="${k.s}"/>`;
 
   return `<svg viewBox="0 0 100 108" aria-hidden="true" focusable="false">
     <defs><clipPath id="${id}">${body}</clipPath></defs>
     <g clip-path="url(#${id})">
-      <rect width="100" height="108" fill="${k.p}"/>${vzor}
+      <rect width="100" height="108" fill="${k.p}"/>${pattern}
       <path d="M42 4 Q50 13 58 4 L58 0 L42 0 Z" fill="rgba(0,0,0,.28)"/>
     </g>
     <g fill="none" stroke="rgba(0,0,0,.35)" stroke-width="2">${body}</g>
@@ -345,12 +349,13 @@ function crest(teamId, cls){
 /* ============================================================
    SNAPSHOTY MINILIGY
 
-   Hub uměl říct, jak si kdo stojí. Neuměl říct, co se změnilo od
-   minula — z aktuálního stavu se to dopočítat nedá.
+   The hub could say where everyone stands. It could not say what had
+   changed since last time — that cannot be derived from the current
+   state.
 
-   Ukládáme proto po každém kole pořadí a body. Je to localStorage,
-   takže na jiném zařízení je snapshot prázdný; server-side úložiště
-   (Vercel KV) je další krok, ale tohle funguje hned a bez účtu.
+   So after each gameweek the ranks and points are stored. It is
+   localStorage, so theirs_ another device the snapshot is empty; this works
+   immediately and without an account.
    ============================================================ */
 const SNAP_KEY = () =>
   'fpl_snap:' + (CONFIG.leagueId || localStorage.getItem('fpl_league') || '0');
@@ -360,22 +365,22 @@ function loadSnaps(){
   catch(e){ return {}; }
 }
 
-/* Snapshot se ukládá pod číslem kola. Přepsat starý nesmíme —
-   změnil by se tím i výpočet posunu, který na něj odkazuje. */
+/* A snapshot is keyed by gameweek number. An old one must not be
+   overwritten — that would also change the movement computed from it. */
 function saveSnap(gw, members){
   const all = loadSnaps();
   if(all[gw]) return all;
   all[gw] = members.slice(0, 60).map(m => ({
     id: m.entry, r: m.rank, t: m.total,
   }));
-  // Držíme posledních osm kol; víc se do localStorage nevejde bezpečně.
+  // Keep the last eight gameweeks; more does not fit safely in localStorage.
   const keys = Object.keys(all).map(Number).sort((a, b) => a - b);
   while(keys.length > 8) delete all[keys.shift()];
   try{ lsSet(SNAP_KEY(), JSON.stringify(all)); }catch(e){}
   return all;
 }
 
-/* Posun v tabulce proti nejbližšímu staršímu snapshotu. */
+/* Movement in the table against the nearest older snapshot. */
 function rankDelta(entryId, gw){
   const all = loadSnaps();
   const prev = Object.keys(all).map(Number).filter(g => g < gw).sort((a, b) => b - a)[0];
@@ -387,7 +392,7 @@ function rankDelta(entryId, gw){
 function deltaChip(now, before){
   if(before === null || before === undefined) return '';
   const d = before - now;
-  if(d === 0) return '<span class="delta same" title="beze změny">–</span>';
+  if(d === 0) return '<span class="delta same" title="no change">–</span>';
   return `<span class="delta ${d > 0 ? 'up' : 'down'}"
-    title="proti minulému kolu">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>`;
+    title="against the previous gameweek">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>`;
 }

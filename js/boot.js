@@ -1,35 +1,22 @@
-/* Minileague Squad Check — start
+/* FPL Squad Check — startup
 
-   Předvyplnění formuláře, spuštění appky a registrace service workeru.
-   Načítá se poslední, protože volá kód ze všech ostatních souborů.
+   Restores the last session (or shows the entry screen) and registers the
+   service worker. Loaded last, because it calls into every other file.
 
-   Soubory js/ se načítají jako klasické <script> v pevném pořadí a
-   sdílejí jeden globální scope: nic se neexportuje ani neimportuje,
-   ale hoisting přes hranici souboru neplatí. Pořadí je proto součást
-   kontraktu a je vypsané v index.html.
+   The js/ files load as classic <script> tags in a fixed order and share
+   one global scope: nothing is exported or imported, but hoisting does
+   not cross file boundaries. The order is therefore part of the contract
+   and is written down in index.html.
    ============================================================ */
-/* Kdo tu byl minule.
 
-   enterApp() si ID ukládá do localStorage od začátku, ale start appky
-   se na to nikdy nepodíval — koukal jen do CONFIG. Kdo měl CONFIG
-   prázdný, dostal vstupní obrazovku po každém refreshi, přestože
-   appka jeho ID celou dobu znala. Uložená hodnota má stejnou váhu
-   jako CONFIG; z uživatelova pohledu je to totéž rozhodnutí, jen
-   udělané kliknutím místo úpravy souboru.
+/* Whoever was here last. enterApp() stores both IDs in localStorage and
+   bootstrapGate() reads them back, so a refresh does not throw anyone
+   out. "Change IDs" in the header clears them; without that button this
+   would be a trap. */
+bootstrapGate();
 
-   Vrátit se na vstupní obrazovku jde tlačítkem „Změnit ID“, které
-   uložené hodnoty smaže. Bez něj by tohle byla past. */
-const savedEntry = CONFIG.entryId || localStorage.getItem(ENTRY_KEY) || '';
-const savedLeague = CONFIG.leagueId || localStorage.getItem(LEAGUE_KEY) || '';
-
-$('eid').value = savedEntry;
-$('lid').value = savedLeague;
-
-if(savedEntry) enterApp(savedEntry, savedLeague);
-else bootstrapGate();
-
-/* Service worker drží skořápku appky offline. Data se nikdy necachují —
-   zastaralé pořadí ligy je horší než chybová hláška. */
+/* The service worker keeps the app shell available offline. Data is never
+   cached — a stale league table is worse than an error message. */
 if('serviceWorker' in navigator && location.protocol === 'https:'){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});

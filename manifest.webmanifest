@@ -1,14 +1,14 @@
 {
-  "name": "Minileague Squad Check",
+  "name": "FPL Squad Check",
   "short_name": "Squad Check",
-  "description": "Kontrola FPL sestavy, miniligy a rozpisu na dalších šest kol.",
+  "description": "Check your FPL squad, your mini-league and the fixtures for the next six gameweeks.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#37003C",
   "theme_color": "#37003C",
-  "lang": "cs",
+  "lang": "en",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }

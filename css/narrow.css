@@ -1,7 +1,7 @@
 /* Minileague Squad Check
 
-   Úzká obrazovka do 720 px. Načítá se přes <link id="mqL">,
-   jehož atribut media přepisuje applyView() v js/ui.js.
+   A narrow screen up to 720 px. Loaded through <link id="mqL">, whose media
+   attribute is rewritten by applyView() in js/ui.js.
    ============================================================ */
 
 .phead{display:none}
@@ -20,5 +20,4 @@
   .prow .n b{color:var(--charcoal)}
   .tick3{grid-column:1/-1;margin-top:5px}
   .fdrleg .hint{margin-left:0;flex-basis:100%}
-  .awards{grid-template-columns:repeat(2,1fr)}
   .hall th.c,.hall td.c{width:52px;padding:8px 3px}

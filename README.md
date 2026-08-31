@@ -1,325 +1,240 @@
-# Minileague Squad Check
+# FPL Squad Check
 
-Pomocná appka k Fantasy Premier League. Jedna HTML stránka, dvě serverless
-funkce, žádný build. Nasadíš na Vercel a běží.
+A helper app for Fantasy Premier League. One HTML page, three serverless
+functions, no build step. Push it to Vercel and it runs.
 
-Nic se nestahuje, dokud nezadáš ID svého týmu. Každá záložka si data tahá
-sama, až když na ni přijde řada.
+Nothing is downloaded until you enter your team ID and your mini-league ID.
+Each tab fetches its own data when its turn comes.
 
-## Co umí
+Everything stays in the browser. There is no account, no database and no
+server-side storage of anything about you.
 
-| Záložka | K čemu je |
+## What it does
+
+| Tab | What it is for |
 |---|---|
-| **Sestava** | Kádr **seskupený podle pozic** s rozpisem na tři kola, živé body během kola, zranění a otazníky, doporučení kapitána, optimální jedenáctka z tvých patnácti, upozornění na blanky a doubly |
-| **Miniliga** | Pořadí, **průběžné body během kola**, vývoj pozic v grafu, hráči, které máš jen ty nebo naopak nemáš, kdo koho vlastní |
-| **Hub ligy** | Novinky po kole, sezónní žebříčky (daň za transfery, zmrzlá lavička), zdraví kádrů, kapitánská mapa a efekt šablony |
-| **Top hráči** | Žebříčky top 10 podle gólů, asistencí, DEFCON, bonusů, xG, xA a xGI; u brankářů čistá konta a zákroky. Pod nimi **porovnání dvou libovolných hráčů** vedle sebe |
-| **Transfery** | Najde problémové hráče a navrhne náhrady do rozpočtu, seřazené podle vlastnictví; statistiky pod tlačítkem **i** |
-| **Program** | Rozpis na šest kol s vlastní obtížností, blanky a doubly |
-| **Ceny** | Kdo dnes v noci zdraží nebo zlevní (oficiální predikce), kdo se pohnul za poslední kolo, největší růst a propad za sezónu |
-| **Plánovač** | Přestupy na čtyři kola dopředu — banka, volné přestupy a hity spočítané kolo po kole |
+| **Home** | What has a deadline today: who will not play, whose price moves tonight, last gameweek's awards, the countdown |
+| **Squad** | Your fifteen **grouped by position** with three gameweeks of fixtures, live points during a gameweek, injuries and doubts, blanks and doubles |
+| **Mini-league** | Standings, **live points during a gameweek**, a rank chart, players only you own or only you are missing, who owns whom |
+| **League hub** | Awards and stories after each gameweek, season leaderboards, squad health, the captain map and the template effect |
+| **Top players** | Top 10 leaderboards by goals, assists, defensive contributions, bonus, xG, xA and xGI; clean sheets and saves for goalkeepers. Below them, **any two players side by side** |
+| **Injuries** | Who is injured, suspended or doubtful — your squad first, then the whole league |
+| **Newsletter** | A merged stream of FPL articles from several sources |
+| **Fixtures** | Six gameweeks ahead with a computed difficulty, blanks and doubles |
+| **Prices** | Who rises or falls tonight (the official projections), who moved last gameweek, the biggest risers and fallers of the season, plus a watchlist |
 
-V hlavičce běží odpočet do nejbližšího deadlinu a pod ní **kolejnice sezóny**:
-38 čárek, jedna na kolo. Odehraná plná, aktuální se plní do deadlinu, budoucí
-vlásek. Kolo, ve kterém má někdo z tvého kádru volno, dostane červenou tečku,
-dvojité kolo mátovou. Je to jediné místo, kde je celá sezóna vidět naráz.
+The header carries a countdown to the next deadline, and under it the **season
+rail**: 38 ticks, one per gameweek. Played ones are solid, the current one fills
+up to the deadline, future ones are hairlines. A gameweek where someone in your
+squad has a blank gets a red dot, a double a mint one.
 
-Appka umí připomenout deadline dvě hodiny předem přes notifikaci prohlížeče.
+## The entry screen
 
-## Nasazení
+Both IDs are required:
 
-1. Nahraj repozitář na GitHub a naimportuj ho ve Vercelu. Žádná konfigurace
-   buildu není potřeba — funkce v `api/` se detekují samy.
-2. Otevři stránku a zadej ID svého týmu (najdeš ho v URL na `fantasy.premierleague.com`,
-   `/entry/60480/…`). ID miniligy je volitelné.
+- **Team ID** — the number in the address of your FPL team page,
+  `fantasy.premierleague.com/entry/60480/event/1`
+- **Mini-league ID** — `fantasy.premierleague.com/leagues/14044/standings/c`
 
-Nechceš-li zadávat ID pokaždé, vyplň `CONFIG` na začátku `js/core.js`
-a vstupní obrazovka se přeskočí.
+A team ID on its own would leave half the app dark, because the hub, the awards,
+the standings and the stories all need a league.
 
-## Soubory
+**Leagues are capped at 15 members.** Every extra member costs one request per
+gameweek for picks and one for history, so a larger league means hundreds of
+calls to the FPL API — slow for the user and a good way to get rate-limited.
+Larger leagues are refused with an explanation. The limit lives in
+`CONFIG.maxMembers` in `js/core.js`; raising it also means raising the message
+in `js/gate.js`, and expect the app to get slower and to hit the FPL rate limit.
+
+Both IDs are kept in `localStorage`, so a refresh does not sign you out.
+**Change IDs** in the header clears them.
+
+## Deployment
+
+1. Push the repository to GitHub and import it into Vercel. No build
+   configuration is needed — the functions in `api/` are detected automatically.
+2. Open the page and enter the two IDs.
+
+Optionally set `FPL_WORKER_URL` and `FPL_WORKER_TOKEN` to route blocked requests
+through the Cloudflare Worker in `worker.js` (see *Operational notes*).
+
+## Files
 
 ```
-index.html              rozvržení a pořadí načítání
-css/app.css             hlavní stylopis
-css/narrow.css          do 720 px  (<link id="mqL">)
-css/small.css           do 640 px  (<link id="mqS">)
-css/mobile.css          mobilní skořápka (<link id="mqM">)
-js/core.js              konfigurace, cache, načtení kádru, záložky
-js/tabs.js              vykreslování obsahu jednotlivých sekcí
-js/h2h.js               H2H miniliga: losování, tabulka, box na Přehledu
-js/news.js              FPL Zpravodaj: filtr, karty, box na Přehledu
-js/advisor.js           Přestupový poradce: diagnostika kádru, tipy z Opta metrik
-js/ui.js                téma, přepínač zobrazení, tooltip, kolejnice
-js/planner.js           plánovač přestupů (záložka vypnutá, kód ponechán)
-js/sync.js              přihlášení a zrcadlení nastavení do Firestore
-js/mobile.js            spodní navigace, plachta „Více“, gesta
-js/boot.js              start aplikace a registrace service workeru
-js/firebase.js          jediný ES modul — inicializace Firebase
-api/news.js             agregace RSS zdrojů (FFScout, FF247, The Scout)
-api/fpl.js              proxy na oficiální FPL API (řeší CORS)
-api/badge.js            odznaky klubů z CDN Premier League, převedené na WebP
-sw.js                   service worker — skořápka a odznaky, data nikdy
-club-marks.svg          záložní barevné značky 20 klubů (sprite)
-manifest.webmanifest    PWA manifest
-icon.svg, favicon.svg   ikona aplikace a favicon
-brand/                  logo, zdroje značky, mockup redesignu
-vercel.json             bezpečnostní hlavičky včetně CSP
-test.mjs                338 smoke testů nad falešnými daty FPL
+index.html              layout and load order
+css/app.css             the main stylesheet
+css/narrow.css          up to 720 px  (<link id="mqL">)
+css/small.css           up to 640 px  (<link id="mqS">)
+css/mobile.css          the mobile shell (<link id="mqM">)
+js/core.js              configuration, cache, squad loading, tabs
+js/tabs.js              rendering of the individual sections
+js/gate.js              the entry screen, validation, the league size cap
+js/histcache.js         the local archive of finished gameweeks
+js/status.js            data status, deep links, sharing, retry
+js/squad.js             a rival's squad in a modal
+js/news.js              the newsletter: filter, cards, the Home box
+js/ui.js                theme, view switch, tooltips, the season rail
+js/topbar.js            the desktop top bar, menu and search
+js/mobile.js            bottom navigation, the "More" sheet, gestures
+js/boot.js              app start and service worker registration
+api/fpl.js              a proxy to the official FPL API (solves CORS)
+api/news.js             RSS aggregation
+api/badge.js            club badges from the Premier League CDN, converted to WebP
+worker.js               an optional Cloudflare Worker bypass to the FPL API
+sw.js                   service worker — the shell and badges, never data
+club-marks.svg          fallback coloured marks for 20 clubs (a sprite)
+manifest.webmanifest    the PWA manifest
+icon.svg, favicon.svg   the app icon and favicon
+assets/hero.svg         the entry screen artwork
+brand/                  logo and brand sources
+vercel.json             security headers including the CSP
+test.mjs                smoke tests against fake FPL data
 ```
 
-Skripty v `js/` jsou **klasické `<script>`, ne ES moduly**: sdílejí jeden
-globální scope, takže se nic neexportuje ani neimportuje. Cenou za to je,
-že hoisting nepřekračuje hranici souboru — **pořadí `<script>` tagů
-v `index.html` je součást kontraktu**. `core.js` musí být první, `boot.js`
-poslední a `mobile.js` před ním (přepisuje `selectTab`).
+The scripts in `js/` are **classic `<script>` tags, not ES modules**: they share
+one global scope, so nothing is exported or imported. The price is that hoisting
+does not cross file boundaries — **the order of the `<script>` tags in
+`index.html` is part of the contract**. `core.js` must be first, `boot.js` last,
+and `mobile.js` before it (it wraps `selectTab`).
 
-Přibude-li soubor do `css/` nebo `js/`, patří i do `FILES` v `sw.js` —
-jinak se offline načte skořápka, která nemá čím naběhnout.
+If a file is added to `css/` or `js/`, it belongs in `FILES` in `sw.js` too —
+otherwise an offline load gets a shell with nothing to start it. Bump the
+`SHELL` cache version on every deploy that changes those files.
 
-### Odznaky klubů
+### Club badges
 
-Klíčem je `teams[].code` z bootstrapu, **ne `id`** — `code` přežívá mezi
-sezónami, zatímco `id` se každý srpen přehazuje podle abecedy.
+The key is `teams[].code` from the bootstrap, **not `id`** — `code` survives
+between seasons, while `id` is reshuffled alphabetically every August.
 
-`api/badge.js` stáhne oficiální PNG z CDN Premier League, převede ho na WebP
-a nechá na edge cache rok. Jde to přes vlastní doménu proto, že CSP má
-`img-src 'self'` a cizí zdroj by se neprokreslil. Konverze potřebuje `sharp`
-(`npm i sharp`); bez něj funkce vrátí původní PNG a obrázek se zobrazí taky,
-jen o pár kB větší.
+`api/badge.js` fetches the official PNG from the Premier League CDN, converts it
+to WebP and lets the edge cache keep it for a year. It goes through our own
+domain because the CSP sets `img-src 'self'` and a foreign source would not
+render. The conversion needs `sharp` (`npm i sharp`); without it the function
+returns the original PNG and the image still shows, just a few kB larger.
 
-Když odznak na CDN není — typicky u čerstvého nováčka — spadne se na barevnou
-značku z `club-marks.svg`: klubová barva, vzor dresu a zkratka. Žádná ochranná
-známka se v repozitáři neukládá.
+When a badge is missing from the CDN — typically a freshly promoted club — it
+falls back to a coloured mark from `club-marks.svg`: club colour, kit pattern
+and abbreviation. No trademark is stored in the repository.
 
-## Testy
+## Tests
 
 ```bash
 npm install
 npm test
 ```
 
-Testy postaví falešný bootstrap i rozpis (včetně kola s blankem a doublem),
-načtou stránku v jsdom a projdou kritické funkce: projekci bodů včetně
-defenzivních příspěvků, optimální jedenáctku, prodejní ceny, predikce cen,
-kolejnici sezóny, plánovač přestupů, snapshoty miniligy a vykreslení panelu
-Sestava. Několik testů hlídá i CSS — že stupnice obtížnosti zůstala jednou
-sadou proměnných a že žádná media query není definovaná dvakrát. Nesahají
-na síť.
+The tests build a fake bootstrap and fixture list (including a gameweek with a
+blank and a double), load the page in jsdom and walk the critical functions:
+the points projection including defensive contributions, the effective lineup
+after autosubs, the best XI, price predictions, the season rail, the gameweek
+archive, the awards and the entry screen validation. A few tests also watch the
+CSS — that the difficulty scale is still one set of variables and that no media
+query is defined twice. They never touch the network.
 
-## Poznámky k provozu
+## Operational notes
 
-**Limity API.** Miniliga o padesáti členech znamená sto dotazů na FPL. Chodí
-frontou po pěti, s opakováním při 429, a odpovědi se v rámci stránky cachují —
-Hub po načtení Miniligy proto nic nového nestahuje. Ligy nad 50 členů se
-stránkují, strop je 200.
+**API limits.** A fifteen-member league means thirty requests per gameweek.
+They go through a queue two at a time, with a retry on 429, and responses are
+cached for the lifetime of the page — so the hub downloads almost nothing after
+the mini-league tab. Five concurrent requests from one datacentre IP is exactly
+the pattern that earns a block at FPL, which is why the concurrency is two.
 
-**Projekce bodů.** Hlavní číslo v přehledech je `ep_next` — oficiální projekce,
-kterou počítá samo FPL a posílá ji v bootstrapu. V rozhraní je označená jako
-**xP FPL**.
+**The CDN block.** FPL sits behind a CDN that refuses datacentre IP ranges
+wholesale. It is not about headers — the refusal comes before they are looked
+at. `api/fpl.js` retries with a cookie handshake, and if that fails it can route
+the request through the Cloudflare Worker in `worker.js`, which runs on an edge
+IP. A block is recognised by the **shape of the response** (a non-JSON
+content-type, an HTML page), not by the status code: the CDN also refuses under
+404, and telling that from "this endpoint does not exist" is otherwise impossible.
 
-Vlastní model (`perMatchXp` → `projectGw` → `projectRange`) zůstal jen tam, kde
-FPL nic nedává: výhled na pět a šest kol dopředu a double kola. `ep_next` je
-totiž vždy za jedno kolo bez ohledu na to, kolik zápasů tým reálně hraje —
-v doublu proto beru vyšší z obou čísel a v rozhraní to označím.
+**Stale data as a fallback.** When the API is unavailable, responses that hold
+between gameweeks (the league table, squads, the bootstrap) are served from the
+last known copy in `localStorage` and the status bar says so. Live gameweek
+points are deliberately never stored: old numbers presented as current are worse
+than an honest error.
 
-**Živé body.** Dokud kolo běží, na hřišti i v tabulce kádru jsou body, které
-hráči skutečně mají (`event/{gw}/live/`), ne projekce na příští kolo — kapitánovy
-už zdvojené. Pomlčka znamená „ještě nenastoupil“, což je jiná zpráva než nula.
-Po uzavření kola se zobrazení vrátí k FDR a projekcím.
+**The gameweek archive.** A finished gameweek never changes, so its picks,
+player points and history row are compressed into `localStorage` under
+`sc:gwsnap:{leagueId}:{gw}`. A gameweek of a ten-member league is roughly five
+kilobytes. A live gameweek, or one still waiting for bonus, is never archived.
+`snapHists()` can rebuild the whole league history from the archive, which saves
+one request per member.
 
-**Kdy appka navrhne transfer.** Priorita 1: hráč je zraněný, suspendovaný nebo
-nedostupný; šance nastoupit je 50 % a méně; nebo ho čeká blok tří zápasů
-s průměrnou obtížností 4.3+. Priorita 2: šance nastoupit 51–99 %; průměrná
-obtížnost bloku 3.9+; nebo tři a víc zápasů po sobě pod 3 body (počítáno jen
-ze zápasů s 60+ minutami).
+**Gameweek phase.** `is_current` flips right after the deadline, and
+`data_checked` flips with a delay of up to a day. Neither is a reliable answer
+to "is this final?", so the phase is derived from the fixture list
+(`gwPhaseFromFixtures()`): a match not finished means live, all finished without
+bonus in the data means waiting for bonus, bonus written means final.
 
-Dvě pojistky proti planým poplachům: obtížnost se počítá přes `ownFdr()`, která
-zohledňuje sílu vlastního týmu — hráč Arsenalu už není trestaný za to, že hraje
-proti jiným silným klubům. A hráč s formou 4+ nebo 4.5+ body na zápas se
-neflaguje kvůli programu ani suchu vůbec: kdo boduje, ten se neprodává.
+**Autosubs and the armband.** FPL does not score the team a manager picked, it
+scores the team that ended up playing. `resolveLineup()` simulates bench
+substitutions in order 12→15 while respecting the formation, and moves the
+captain's armband (including the Triple Captain multiplier) to the vice captain
+when the captain did not play. Without this, a finished gameweek showed fewer
+points than the manager really had.
 
-**Doporučení náhrad** se řadí **výhradně podle `selected_by_percent`** — kolik
-procent hráčů FPL daného hráče vlastní. Do pořadí nevstupuje projekce, forma
-ani rozpis. Je to vědomá volba: vysoké vlastnictví drží tvůj tým s polem, takže
-když hráč zaboduje, neztrácíš. Náskok se tímhle způsobem ale nezískává —
-kdo chce jít proti proudu, najde nízké vlastnictví v záložce Hub ligy.
+**The projection.** The headline number is `ep_next` — the official projection
+FPL computes itself. The own model (`perMatchXp` → `projectGw` → `projectRange`)
+is only used where FPL gives nothing: the five and six gameweek outlook and
+double gameweeks, because `ep_next` is always for one match regardless of how
+many a team actually plays.
 
-Řádek náhrady ukazuje jméno, tým, cenu, vlastnictví, body za minulé kolo
-a odehrané minuty. Všechno ostatní je pod tlačítkem **i** (ne hover — na
-dotykovém displeji by tooltip byl nedostupný).
+**No captain recommendation by xP.** `ep_next` arrives rounded to one decimal
+and for top players comes out practically identical, so no ranking emerges. The
+app used to say "there is nothing to pick between them" — honest but useless.
+Instead it shows the **two teams with the easiest fixture** next gameweek and
+which of their players you own, and leaves the decision to you.
 
-**Vysvětlivky jsou v tooltipech.** Appka měla přes sedmdesát vysvětlujících
-odstavců pod tabulkami. Každý sám o sobě dával smysl, dohromady z toho byla zeď
-textu, kterou nikdo nečetl a která odsouvala vlastní data pod ohyb. Text zůstal,
-jen se schoval za „i“ vedle nadpisu — helper `info()` vrací tlačítko i obsah,
-obsluha je jedna delegovaná na dokumentu (tooltipy vznikají při každém
-překreslení, takže věšet posluchače na každý zvlášť by je po překreslení
-ztrácelo). Otevírá se **kliknutím, ne hoverem**: na dotykovém displeji hover
-neexistuje a tooltip by byl nedostupný.
+**Awards lapse on a majority.** An award is a distinction, so when half the
+league or more lands on the same extreme value it is not given and the card says
+why. The threshold is sharp at half: 4 of 10 still get it, 5 of 10 do not. The
+rule is applied consistently to every award pair.
 
-Krátké hlášky a prázdné stavy v tooltipech nejsou — „nikdo není zraněný“ nebo
-„FPL zatím predikce neposílá“ je informace, ne vysvětlivka.
+**League history has a ceiling that cannot be worked around.** FPL does not send
+mini-league standings for past seasons — the standings endpoint always returns
+the current one. What is available is `past` from `entry/{id}/history/`: each
+manager's totals and overall rank. The history table is therefore derived from
+the people who are in the league **today**; anyone who has left is missing and
+the ranking is not how the league actually finished. The app says so rather than
+presenting a quietly inaccurate archive.
 
-**Ligové záložky se načítají samy** — při prvním otevření záložky, ne při startu
-appky. Kdo se na ligu nepodívá, nestáhne nic; kdo ano, nemusí klikat. Druhá
-ligová záložka je pak skoro zadarmo, protože dotazy na jednotlivé členy jdou
-přes `cached()` a jsou to přesně tytéž adresy.
+`CONFIG.officialSeasons` and `CONFIG.memberSince` can narrow that down for a
+league that grew over time — who officially played in which season, and who
+joined later. Both are empty by default, which means every season counts for
+every current member.
 
-Tlačítka zůstala jako **Aktualizovat**. Musí ale nejdřív zavolat `dropCached()`:
-cache žije po celou dobu života stránky, takže bez zneplatnění by se jen
-překreslila tatáž data. Zahazuje se jen `leagues-classic/` a `entry/` —
-`bootstrap-static/` se během kola nemění a stahovat ho znovu by bylo zbytečné.
+**Difficulty is not FDR.** FPL sets its FDR in August and never changes it. The
+app computes its own from the attacking and defensive strength of both teams
+(`ownFdr()`). The colours are **relative**: the thresholds are quintiles across
+every fixture in the visible window, so each band gets roughly a fifth of the
+cells. Fixed bounds did not work — team strengths differ little for most clubs
+and the ticker came out uniformly green.
 
-**Režim jedné miniligy.** Vyplněné `CONFIG.leagueId` změní appku z obecného
-nástroje na web jedné ligy: vstupní obrazovka si stáhne soupisku a nabídne
-rozbalovací seznam jmen místo pole na entry ID. Nikdo nemusí lovit svoje číslo
-v adrese FPL. Ruční zadání zůstává schované pod odkazem — do ligy může někdo
-přibýt dřív, než se soupiska přenačte, a když se standings nenačte vůbec,
-appka na ruční režim spadne sama a řekne proč. Prázdné `leagueId` vrátí původní
-chování se dvěma poli.
+At the start of a season `strength_attack_*` and `strength_defence_*` are zero
+until FPL fills them in, so `teamStrengths()` falls back to
+`strength_overall_home/away` (a 1–5 scale), which is filled in from the start.
+Only when those are missing too does `ownFdr()` return the official FDR. The
+interface does not hide this: `strengthsReady()` and `strengthsUsable()` decide
+what the note under the table says about the source.
 
-**Oficiální sezóny.** `CONFIG.officialSeasons` říká, kdo v daném ročníku za ligu
-opravdu nastoupil. FPL to neví — zná jen celkové body každého manažera — takže
-bez toho by medaile za roky, kdy hráli tři lidi, dostávali i ti, kdo tehdy hráli
-sami za sebe jinde. Jména se párují přes `normName`, takže na diakritice
-nezáleží; místo jména jde uvést i entry ID, což je odolnější. Sezóna, která
-v konfiguraci není, se počítá pro všechny členy.
+**Explanations live in tooltips.** The app had over seventy explanatory
+paragraphs under its tables. Each made sense alone, but together they were a
+wall of text nobody read that pushed the data below the fold. The text stayed,
+it just hides behind an "i" next to the heading. It opens **on click, not on
+hover**: hover does not exist on a touch screen and the tooltip would be
+unreachable. Short messages and empty states are not in tooltips — "nobody is
+injured" is information, not an explanation.
 
-Soupiska se řídí dvěma nezávislými pravidly, která se skládají:
-`officialSeasons` pro roky s pevně danou soupiskou a `memberSince` pro lidi,
-kteří přišli později. Druhé existuje proto, že vypisovat u každé sezóny všechny
-členy by bylo dlouhé a rozbilo by se to při každém dalším příchodu. Sezóny před
-uvedeným datem se počítají jako „hrál FPL, ale mimo tuhle ligu“ — body v tabulce
-zůstanou šedě, medaili člověk nedostane.
+**League tabs load themselves** when first opened, not at app start. Whoever
+does not look at the league downloads nothing; whoever does need not click. The
+second league tab is then nearly free, because the per-member requests go
+through `cached()` and are exactly the same URLs. The **Refresh** buttons must
+call `dropCached()` first: the cache lives for the lifetime of the page, so
+without invalidation the same data would simply be redrawn.
 
-**Historie miniligy má strop, který nejde obejít.** FPL neposílá pořadí
-miniligy za minulé sezóny — endpoint standings vrací vždy jen tu rozehranou.
-Dostat jde `past` z `entry/{id}/history/`: celkové body a celkové pořadí
-každého manažera. Tabulka v sekci Historie je proto dopočítaná z lidí, kteří
-jsou v lize **dneska** — kdo mezitím odešel, chybí, a pořadí není to, jak
-liga tehdy skutečně dopadla. Appka to říká i uživateli; tichý nepřesný archiv
-by byl horší než žádný.
+## Licence and trademarks
 
-**Doporučení kapitána podle xP appka nedělá.** `ep_next` chodí od FPL
-zaokrouhlené na desetinu a u špičkových hráčů vychází prakticky stejně
-(Haaland 4.0, Fernandes 4.0), takže z něj pořadí nevznikne — appka pak sama
-psala „doporučit jednoho z nich nemá čím“, což je poctivé, ale k ničemu.
-Místo toho ukazuje **dva týmy s nejlehčím losem** v příštím kole: proti komu
-hrají, spočtenou obtížnost a koho z těch týmů máš v kádru. Pod tím tvoje tři
-nejdražší hráče se stejnou informací. Rozhodnutí zůstává na uživateli — lehký
-los sám o sobě body nedělá.
-
-**Diferenciály nikdy nevrátí prázdno.** Dřív to byl pevný strop 12 %
-vlastnictví a tvrdý filtr na minuty; když se do něj nikdo nevešel, appka
-napsala „nikdo neprošel filtrem“ a skončila. Na začátku sezóny se to stávalo
-skoro vždycky. Strop se teď uvolňuje po krocích, dokud se nenajde pět jmen,
-a appka řekne, o kolik musela slevit. Jistota minut přestala být podmínkou
-a stala se z ní **škála 0–1**, která skóre násobí: kdo odehrál dvě kola, má
-málo minut ze své podstaty, ne proto, že by nehrál. Před prvním kolem, kdy
-minuty neříkají nic, se jistota odhaduje z ceny.
-
-**Diferenciály** řadíme podle projekce dělené **odmocninou** vlastnictví.
-Odmocnina proto, že rozdíl mezi 2 % a 12 % znamená pro posun v pořadí mnohem
-víc než mezi 40 % a 50 % — tam se s tebou hýbe skoro celé pole. Páka je
-useknutá zdola na 1,5 %, ať neznámý hráč s jednou dobrou statistikou neuteče
-nahoru. Jistota minut je tvrdá podmínka: hráč, který nenastupuje, není
-diferenciál, ale prázdné místo v sestavě.
-
-**Žebříčky místo filtrů.** Záložka Top hráči byla dřív filtrovatelná tabulka
-všech zhruba sedmi set hráčů. Fungovala, ale odpovídala na otázku „najdi mi
-konkrétního hráče“ — a tu si člověk položí zřídka. Častější je „kdo je letos
-nejlepší v X“, na což se z jedné dlouhé tabulky odpovídalo řazením a klikáním.
-Teď je každá kategorie vlastní box s top desítkou. Kategorie, kterou FPL v dané
-sezóně neposílá, box přizná místo aby ukazoval samé nuly.
-
-**Statistiky u hráče** se řídí jeho pozicí: brankář dostane zákroky, chycené
-penalty a xGC; obránce čistá konta, xGC a defenzivní příspěvky; záložník
-xGI i xGC, protože bere body z obou stran; útočník xGI, xG a xA. Pole, která
-FPL v dané sezóně neposílá, se prostě nezobrazí — funkce `stat()` vrací `null`
-místo `NaN`.
-
-**Obtížnost soupeře** se nepočítá z FDR, které FPL nastaví v srpnu a pak už
-nemění, ale z útočné a obranné síly obou týmů z bootstrapu (`ownFdr()`).
-
-Barvy jsou **relativní**: prahy se počítají jako kvintily napříč všemi zápasy
-v zobrazeném okně, takže každé pásmo dostane zhruba pětinu buněk. Pevné hranice
-tohle nezvládly — síly týmů se u většiny klubů liší málo a ticker vycházel celý
-stejně zelený. Když je rozptyl hodnot menší než 0,4, kvintily se nepoužijí
-a nastoupí pevná stupnice: jednobarevná mřížka nenese žádnou informaci.
-
-**Záloha na začátku sezóny — tři úrovně.** `strength_attack_*`
-a `strength_defence_*` jsou v bootstrapu nuly, dokud je FPL po několika kolech
-nedopočítá. `strength_overall_home/away` (stupnice 1–5) ale vyplněné **jsou**
-od začátku, takže `teamStrengths()` sáhne po nich: pořád to rozliší domácí
-zápas od venkovního, jen hruběji. Teprve když chybí i ty, vrací `ownFdr()`
-oficiální FDR z rozpisu.
-
-Rozhraní o tom nemlčí: `strengthsReady()` říká „máme ostrá data“,
-`strengthsUsable()` „aspoň něco spočítat jde“, a text pod tabulkou podle toho
-pojmenuje zdroj. Bez téhle pojistky vycházela obtížnost všech zápasů 1.0
-(poměr sil 0 → vzorec pod stupnicí → `Math.max(1, …)`) a celá liga vypadala
-jako samé lehké zápasy.
-
-**Defenzivní příspěvky.** Za dosažení prahu (10 akcí u obránců, 12 u záložníků
-a útočníků) dávají 2 body; brankáři je nedostávají. Model je nepočítá skokem —
-sezónní průměr přesně na prahu neznamená „vždycky“, takže pravděpodobnost
-zásahu jde přes logistickou křivku kolem prahu. Bez tohohle model systematicky
-podhodnocoval defenzivní záložníky.
-
-**Prodejní ceny.** Nákupní cenu bere appka z `entry/{id}/transfers/` — u každého
-přestupu je `element_in_cost`. Hráč, kterého jsi nikdy nekupoval, je z původního
-kádru, takže jeho nákupní cena je `now_cost − cost_change_start`. Prodejní cena
-se pak dopočítá podle pravidla FPL: ze zisku dostaneš zpátky polovinu
-zaokrouhlenou dolů na desetinu. Ruční přepis zůstal, ale už jen jako výjimka —
-UI u každého čísla říká, odkud je.
-
-**Změny cen.** Appka si směr nedomýšlí z čistého přílivu transferů. FPL dnes
-posílá `price_change_projections` s pravděpodobností na tři dny dopředu,
-`price_change_percent` jako naplněnost ukazatele a
-`game_config.settings.price_change_deadlines` jako přesné časy změn. Bereme
-oficiální číslo, když existuje — stejně jako u `ep_next`. Když projekce
-v datech nejsou (bývá to před prvním kolem), appka to řekne místo aby hádala.
-
-**Vstupní obrazovka je tmavá.** Zbytek appky světlý — je to záměr, ne
-nedůslednost. Vstup funguje jako dveře: auberginové pozadí, za nimi se appka
-rozsvítí. Praktický důvod je ale prostší: nadpis byl bílý a na světlém plátně
-zmizel. Formulář navíc sedí **vedle** nadpisu, ne pod ním; dřív byl přes dvě
-stě pixelů pod ohybem a po otevření nebylo vidět, co má člověk udělat.
-
-**Světlo a tma.** Appka je navržená jako světlá — barevná stupnice obtížnosti
-i odznaky klubů čtou na papíře líp než na černé. Tma je proto **přepínač
-v hlavičce**, ne `prefers-color-scheme`: automatika by lidem s tmavým systémem
-podstrčila horší variantu, aniž by si o ni řekli. Volba se pamatuje pod klíčem
-`fpl_theme`. Jediné místo, kde tma zůstává i ve světlém režimu, je hřiště —
-bílé dresy na ní vyniknou tak, jak na světlém podkladu nemůžou.
-
-**Cloudflare a 403.** FPL sedí za Cloudflare, který začal odmítat requesty
-s botím `User-Agent`. Projevovalo se to jako 403 na `/fixtures/`, zatímco
-`/bootstrap-static/` ještě procházel. Proxy proto posílá hlavičky prohlížeče
-včetně `Referer` a při 403 nebo 503 zkusí request ještě jednou. Pokud se to
-vrátí, prvním místem k šahnutí je `BROWSER_HEADERS` v `api/fpl.js`.
-
-**Google Fonts** se načítají z CDN. Pro provoz v EU je čistší si ty tři
-rodiny (Archivo, Inter, Space Mono) stáhnout do repozitáře,
-nahradit `<link>` vlastním `@font-face` a z CSP v `vercel.json` odstranit
-`fonts.googleapis.com` a `fonts.gstatic.com`.
-
-## Co appka nedělá
-
-Nepřihlašuje se za tebe do FPL, takže nemůže provádět transfery ani měnit
-sestavu — pracuje jen s veřejnými daty. Plánovač je počítadlo, ne ovladač:
-samotné přestupy pořád uděláš na webu FPL.
-
-Snapshoty miniligy a plán přestupů se ukládají do `localStorage`, tedy jen
-v tom prohlížeči, kde je vytvoříš. Na jiném zařízení začínáš s prázdnou
-historií. Sdílené úložiště (Vercel KV) je logický další krok, ale tohle
-funguje hned a bez dalšího účtu.
-
-Vyhledávání v porovnání hráčů seznam nefiltruje, jen vybere nejlepší shodu.
-Filtrovat `<select>` znamená mazat a znovu stavět stovky `<option>` při každém
-stisku klávesy — a hlavně by ti pod rukama zmizel hráč, kterého jsi právě
-vybral.
-
-Doporučení čipů appka nedělá. Dřív to byla čtvrtá sekce v Programu, ale
-potřebovala načtený kádr z jiné záložky a bez něj ukazovala jen výzvu, ať
-si ho člověk načte — což z ní dělalo spíš překážku než radu.
+This is an unofficial tool with no connection to the Premier League or to
+Fantasy Premier League. Club badges are fetched from the official CDN at runtime
+and none are stored in this repository; the icons and artwork are original work
+in aubergine and gold and deliberately do not reproduce any protected mark.

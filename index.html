@@ -1,24 +1,24 @@
 <!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Minileague Squad Check</title>
+<title>FPL Squad Check</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
 
-<!-- Responzivní pravidla. Atribut media se dá za běhu přepsat, takže
-     přepínač Desktop/Mobil nemusí mít vlastní kopie pravidel. -->
+<!-- Responsive rules. The media attribute is rewritten at runtime, so the
+     desktop/mobile switch needs no duplicate copies of the rules. -->
 <link id="mqL" rel="stylesheet" media="(max-width:720px)" href="/css/narrow.css">
 <link id="mqS" rel="stylesheet" media="(max-width:640px)" href="/css/small.css">
 
-<!-- Mobilní skořápka. Vlastní tag, ať s ním umí hýbat přepínač zobrazení
-     (viz VIEW_MQ) stejně jako s mqL a mqS. -->
+<!-- The mobile shell. Its own tag so the view switch (see VIEW_MQ) can move
+     it the same way it moves mqL and mqS. -->
 <link id="mqM" rel="stylesheet" media="(max-width:720px)" href="/css/mobile.css">
-  <meta name="description" content="Kontrola FPL sestavy, miniligy a rozpisu na dalších šest kol.">
+  <meta name="description" content="Check your FPL squad, your mini-league and the fixtures for the next six gameweeks.">
   <meta name="theme-color" content="#37003C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,48 +29,48 @@
 <body>
 <noscript>
   <div style="max-width:640px;margin:60px auto;padding:0 20px;font-family:system-ui;color:#fff">
-    <h1>Squadcheck</h1>
-    <p>Tahle aplikace počítá všechno přímo v prohlížeči, takže bez JavaScriptu
-    nemá co zobrazit. Zapni ho a načti stránku znovu.</p>
+    <h1>Squad Check</h1>
+    <p>This app does all of its work in the browser, so without JavaScript it
+    has nothing to show. Turn it on and reload the page.</p>
   </div>
 </noscript>
 
 <div id="landing">
   <div class="wrap">
     <div class="hero">
-      <img class="poster" src="/assets/headline.webp" width="588" height="876"
-           alt="O pohár Ládi Stropnického — sezóna 2026/27" fetchpriority="high">
+      <img class="poster" src="/assets/hero.svg" width="392" height="520"
+           alt="FPL Squad Check" fetchpriority="high">
     </div>
 
+    <!-- ============================================================
+         ENTRY SCREEN
+
+         Both IDs are required. A team ID on its own would leave half the
+         app dark — the league hub, the awards, the standings and the
+         stories all need a league — and quietly disabling those tabs
+         turned out to be worse than asking for the second number here.
+         Validation and the league size cap live in js/gate.js.
+         ============================================================ -->
     <div class="gate">
       <p class="kicker">Fantasy Premier League</p>
       <h2 id="gateTitle">Squad Check</h2>
-      <p class="sub" id="gateSub">Kdo ti nenastoupí, kdo v lize vede a koho vyměnit.</p>
+      <p class="sub" id="gateSub">Who will not play, who leads your league and what the fixtures hold.</p>
 
-      <!-- Režim jedné ligy: seznam jmen. Naplní ho bootstrapGate(). -->
-      <div class="field" id="pickField" hidden>
-        <label for="whoami">Kdo jsi?</label>
-        <select id="whoami"><option value="">Načítám soupisku…</option></select>
-        <p class="help">Soupiska se bere přímo z miniligy.</p>
+      <div class="field">
+        <label for="eid">Your team ID</label>
+        <input id="eid" inputmode="numeric" placeholder="60480">
+        <p class="help">fantasy.premierleague.com/entry/<code>60480</code>/event/1</p>
+      </div>
+      <div class="field">
+        <label for="lid">Mini-league ID</label>
+        <input id="lid" inputmode="numeric" placeholder="14044">
+        <p class="help">fantasy.premierleague.com/leagues/<code>14044</code>/standings/c</p>
       </div>
 
-      <!-- Původní režim: ruční zadání ID. -->
-      <div id="manualFields" hidden>
-        <div class="field">
-          <label for="eid">ID tvého týmu</label>
-          <input id="eid" inputmode="numeric" placeholder="60480">
-          <p class="help">fantasy.premierleague.com/entry/<code>60480</code>/event/1</p>
-        </div>
-        <div class="field">
-          <label for="lid">ID miniligy <span class="opt">— nepovinné</span></label>
-          <input id="lid" inputmode="numeric" placeholder="14044">
-          <p class="help">fantasy.premierleague.com/leagues/<code>14044</code>/standings/c</p>
-        </div>
-      </div>
-
-      <button class="wide" id="enter">Otevřít</button>
-      <button class="lnk" id="manualToggle" hidden>Nejsem na seznamu — zadám ID ručně</button>
-      <p id="gatemsg" class="help" style="color:var(--alert);margin-top:12px"></p>
+      <button class="wide" id="enter">Open</button>
+      <p id="gatemsg" class="help" style="color:var(--alert);margin-top:12px" role="alert"></p>
+      <p class="help" style="margin-top:14px">Leagues of up to 15 members. Everything
+        stays in your browser — no account, nothing is sent anywhere.</p>
     </div>
   </div>
 </div>
@@ -78,30 +78,35 @@
 <div id="app" hidden>
   <div class="bar">
     <div class="wrap">
-      <a class="brand" href="#home" aria-label="Squad Check — úvod">
+      <a class="brand" href="#home" aria-label="Squad Check — home">
         <img src="/assets/mark.webp" alt="" width="30" height="30"
              decoding="async">
-        <!-- V režimu jedné ligy je v hlavičce jen její název: „Squad Check“
-             je jméno nástroje, ale člověk chodí do svojí ligy. Dlouhý název
-             se láme na dva řádky, aby se vešel vedle segmentu a nemusel se
-             schovávat pod něj. -->
-        <span class="tx" id="brandTop">SQUAD CHECK</span>
+        <!-- The header carries the league name: "Squad Check" is the name of
+             the tool, but people come to their own league. A long name wraps
+             onto two lines so it fits beside the segment. -->
+        <span class="btxt">
+          <span class="tx" id="brandTop">SQUAD CHECK</span>
+          <!-- Gameweek state and countdown. On desktop there is room for both
+               in the bar below; on a phone that bar took two rows saying the
+               same thing. Written by drawStatus() in js/status.js. -->
+          <span class="brandsub" id="brandSub" hidden></span>
+        </span>
       </a>
 
-      <!-- Segment s pěti sekcemi a nabídkou „Víc“; skládá ho js/topbar.js
-           z týchž tlačítek, která jsou v .nav, aby existoval jeden zdroj
-           pravdy o otevřené záložce. -->
+      <!-- The segment with five sections and a "More" menu; assembled by
+           js/topbar.js from the same buttons that live in .nav, so there is
+           one source of truth about the open tab. -->
       <div id="topnav"></div>
 
       <span class="barspace"></span>
 
-      <!-- Vpravo jen to, co se používá při každé návštěvě. Přepínače
-           a odhlášení jsou v nabídce „Víc“; deadline v pruhu pod lištou,
-           kde je na něj místo. -->
+      <!-- On the right, only what is used on every visit. The switches and
+           sign-out are in the "More" menu; the deadline is in the bar below,
+           where there is room for it. -->
       <button type="button" class="cmd" id="palopen"
-              aria-label="Hledat sekci nebo manažera" title="Hledat (Ctrl+K)">
+              aria-label="Search for a section or a manager" title="Search (Ctrl+K)">
         <span aria-hidden="true">⌕</span>
-        <span class="txt">Hledat</span>
+        <span class="txt">Search</span>
         <kbd aria-hidden="true">Ctrl K</kbd>
       </button>
 
@@ -109,89 +114,74 @@
       <span class="state" id="topstate" hidden></span>
 
       <span class="who">
-        <button class="small icon" id="viewmode" title="Zobrazení: automatické"
-                aria-label="Přepnout zobrazení desktop/mobil">⇔</button>
+        <button class="small icon" id="viewmode" title="View: automatic"
+                aria-label="Switch between the desktop and mobile view">⇔</button>
         <button class="small icon" id="theme" aria-pressed="false"
-                title="Přepnout tmavý režim" aria-label="Přepnout tmavý režim">☾</button>
-        <button class="small icon" id="reload" title="Načíst data znovu"
-                aria-label="Načíst data znovu">⟳</button>
-        <span class="sync" id="syncmsg" hidden></span>
+                title="Switch to dark mode" aria-label="Switch to dark mode">☾</button>
+        <button class="small icon" id="reload" title="Reload data"
+                aria-label="Reload data">⟳</button>
         <b id="whoName">—</b>
-        <button class="small" id="gauth" hidden>Přihlásit</button>
-        <button class="small" id="logout">Změnit ID</button>
+        <button class="small" id="logout">Change IDs</button>
       </span>
     </div>
   </div>
 
-  <!-- Mobilní navigace. Tlačítka jsou proxy: klikají na skutečná
-       tlačítka v .nav, takže existuje pořád jen jeden zdroj pravdy
-       o tom, která záložka je otevřená. -->
-  <nav id="mnav" aria-label="Hlavní navigace"></nav>
+  <!-- Mobile navigation. The buttons are proxies: they click the real
+       buttons in .nav, so there is still only one source of truth about
+       which tab is open. -->
+  <nav id="mnav" aria-label="Main navigation"></nav>
   <div id="msheet" hidden>
     <div class="scrim" data-mclose></div>
-    <div class="card" role="dialog" aria-modal="true" aria-label="Další sekce">
+    <div class="card" role="dialog" aria-modal="true" aria-label="More sections">
       <div class="grip"></div>
       <div id="msheetBody"></div>
     </div>
   </div>
 
-  <!-- Stav dat: jedna odpověď na otázku „je tohle už konečné?“, která
-       během kola nezmizí, ať je člověk na kterékoli záložce. -->
+  <!-- Data status: one answer to "is this final yet?", which does not go
+       away during a gameweek whichever tab you are on. -->
   <div class="statusbar" id="statusbar" role="status" aria-live="polite" hidden></div>
 
-  <!-- Hledání. Otevírá se z lišty nebo Ctrl+K; skáče na sekci a na
-       manažera ligy (tomu rovnou otevře sestavu). -->
+  <!-- Search. Opens from the bar or with Ctrl+K; jumps to a section or to a
+       league manager (opening their squad directly). -->
   <div id="palette" hidden>
     <div class="scrim"></div>
-    <div class="card" role="dialog" aria-modal="true" aria-label="Hledat">
+    <div class="card" role="dialog" aria-modal="true" aria-label="Search">
       <input id="palinput" type="text" autocomplete="off"
-             placeholder="Sekce nebo jméno manažera…">
+             placeholder="A section or a manager's name…">
       <div id="palout"></div>
     </div>
   </div>
 
   <div class="rail" id="rail" hidden>
-    <div class="wrap" id="railTrack" role="img" aria-label="Průběh sezóny"></div>
+    <div class="wrap" id="railTrack" role="img" aria-label="Season progress"></div>
   </div>
 
   <div class="navbar">
     <div class="wrap navrow">
-      <div class="nav" role="tablist" aria-label="Sekce aplikace">
-      <button id="t-home" role="tab" aria-selected="true" aria-controls="p-home">Přehled</button>
-      <button id="t-squad" role="tab" aria-selected="false" aria-controls="p-squad">Sestava</button>
-      <button id="t-league" role="tab" aria-selected="false" aria-controls="p-league">Miniliga</button>
-      <button id="t-hub" role="tab" aria-selected="false" aria-controls="p-hub">Hub ligy</button>
-      <button id="t-h2h" role="tab" aria-selected="false" aria-controls="p-h2h">H2H</button>
-      <button id="t-news" role="tab" aria-selected="false" aria-controls="p-news">Zpravodaj</button>
-      <button id="t-inj" role="tab" aria-selected="false" aria-controls="p-inj">Zranění</button>
-      <button id="t-players" role="tab" aria-selected="false" aria-controls="p-players">Top hráči</button>
-      <!-- Transfery jsou vypnuté, ne smazané. Jejich práci převzala sekce
-           „Hráči k zamyšlení“ v Poradci, která říká proč, ne jak. Kód i panel
-           zůstávají — návrat je tenhle řádek a dvojice v TABS v js/core.js.
-      <button id="t-tr" role="tab" aria-selected="false" aria-controls="p-tr">Transfery</button>
-      -->
-      <button id="t-plan" role="tab" aria-selected="false" aria-controls="p-plan">Program</button>
-      <button id="t-prices" role="tab" aria-selected="false" aria-controls="p-prices">Ceny</button>
-      <button id="t-adv" role="tab" aria-selected="false" aria-controls="p-adv">Poradce</button>
-      <!-- Plánovač je vypnutý, ne smazaný. Kód pro něj zůstává v
-           js/planner.js a panel níž v tomhle souboru — kdyby se měl
-           vrátit, stačí odkomentovat tenhle řádek a přidat dvojici
-           zpátky do TABS v js/core.js.
-      <button id="t-planner" role="tab" aria-selected="false" aria-controls="p-planner">Plánovač</button>
-      -->
+      <div class="nav" role="tablist" aria-label="App sections">
+      <button id="t-home" role="tab" aria-selected="true" aria-controls="p-home">Home</button>
+      <button id="t-squad" role="tab" aria-selected="false" aria-controls="p-squad">Squad</button>
+      <button id="t-league" role="tab" aria-selected="false" aria-controls="p-league">Mini-league</button>
+      <button id="t-hub" role="tab" aria-selected="false" aria-controls="p-hub">League hub</button>
+      <button id="t-news" role="tab" aria-selected="false" aria-controls="p-news">Newsletter</button>
+      <button id="t-inj" role="tab" aria-selected="false" aria-controls="p-inj">Injuries</button>
+      <button id="t-players" role="tab" aria-selected="false" aria-controls="p-players">Top players</button>
+      <button id="t-plan" role="tab" aria-selected="false" aria-controls="p-plan">Fixtures</button>
+      <button id="t-prices" role="tab" aria-selected="false" aria-controls="p-prices">Prices</button>
       </div>
-      <!-- Odkaz ven, ne záložka: proto <a> mimo role="tablist", jinak by
-           ho čtečka ohlašovala jako panel, který nikam nevede. -->
+      <!-- A link out, not a tab: hence an <a> outside role="tablist", or a
+           screen reader would announce it as a panel that leads nowhere. -->
       <a class="navout" id="fplLink" href="https://fantasy.premierleague.com/en/transfers"
-         target="_blank" rel="noopener noreferrer">Oficiální FPL<span aria-hidden="true">↗</span></a>
+         target="_blank" rel="noopener noreferrer">Official FPL<span aria-hidden="true">↗</span></a>
     </div>
   </div>
 
   <div class="wrap">
     <div class="railkey" id="railKey" hidden>
-      <span><i style="background:#00FF87"></i>dvojité kolo</span>
-      <span><i style="background:#C4004A"></i>volné kolo</span>
-      <span id="railScope">tvůj kádr</span>
+      <span><i style="background:#00FF87"></i>double gameweek</span>
+      <span><i style="background:#C4004A"></i>blank gameweek</span>
+      <span id="railScope">your squad</span>
     </div>
 
     <div class="panel" id="p-home" role="tabpanel" tabindex="-1" aria-labelledby="t-home">
@@ -205,8 +195,8 @@
 
     <div class="panel" id="p-league" role="tabpanel" tabindex="-1" aria-labelledby="t-league" hidden>
       <div class="panelhead">
-        <p class="hint">Pořadí, vývoj v tabulce, rozdíly proti soupeřům a kdo koho vlastní.</p>
-        <button class="small ghost" id="lgo">Aktualizovat</button>
+        <p class="hint">Standings, how the table has moved, differences against your rivals and who owns whom.</p>
+        <button class="small ghost" id="lgo">Refresh</button>
       </div>
       <div id="lmsg" role="status" aria-live="polite"></div>
       <div id="lout"></div>
@@ -214,72 +204,45 @@
 
     <div class="panel" id="p-hub" role="tabpanel" tabindex="-1" aria-labelledby="t-hub" hidden>
       <div class="panelhead">
-        <p class="hint">Novinky po kole, sezónní žebříčky, zdraví kádrů a pohled na celou ligu.</p>
-        <button class="small ghost" id="hubgo">Aktualizovat</button>
+        <p class="hint">Awards and stories after each gameweek, season leaderboards, squad health and a look at the whole league.</p>
+        <button class="small ghost" id="hubgo">Refresh</button>
       </div>
       <div id="hubmsg" role="status" aria-live="polite"></div>
       <div id="hubout"></div>
     </div>
 
-    <div class="panel" id="p-h2h" role="tabpanel" tabindex="-1" aria-labelledby="t-h2h" hidden>
-      <div id="h2hmsg" role="status" aria-live="polite"></div>
-      <div id="h2hout"></div>
-    </div>
-
     <div class="panel" id="p-news" role="tabpanel" tabindex="-1" aria-labelledby="t-news" hidden>
-      <h2>FPL Zpravodaj</h2>
+      <h2>FPL newsletter</h2>
       <div id="newsmsg" role="status" aria-live="polite"></div>
       <div id="newsout"></div>
     </div>
 
     <div class="panel" id="p-inj" role="tabpanel" tabindex="-1" aria-labelledby="t-inj" hidden>
-      <p class="hint">Kdo je zraněný, potrestaný nebo pod otazníkem — nejdřív
-        tvůj kádr, pak celá liga. Čísla jsou přímo z FPL.</p>
+      <p class="hint">Who is injured, suspended or doubtful — your squad first,
+        then the whole league. The numbers come straight from FPL.</p>
       <div id="injmsg" role="status" aria-live="polite"></div>
       <div id="injout"></div>
     </div>
 
     <div class="panel" id="p-players" role="tabpanel" tabindex="-1" aria-labelledby="t-players" hidden>
-      <p class="hint">Kdo letos vede v jednotlivých statistikách — a porovnání
-        libovolných dvou hráčů vedle sebe.</p>
+      <p class="hint">Who leads each statistic this season — and any two players
+        side by side.</p>
       <div id="pmsg" role="status" aria-live="polite"></div>
       <div id="pout"></div>
       <div id="pcompare"></div>
       <div id="pdetail"></div>
     </div>
 
-    <div class="panel" id="p-tr" role="tabpanel" tabindex="-1" aria-labelledby="t-tr" hidden>
-      <p class="hint">Najdu problémové hráče a navrhnu náhrady, které se vejdou do rozpočtu.</p>
-      <button id="trgo" style="margin-top:14px">Analyzovat sestavu</button>
-      <div id="trmsg" role="status" aria-live="polite"></div>
-      <div id="trout"></div>
-    </div>
-
     <div class="panel" id="p-prices" role="tabpanel" tabindex="-1" aria-labelledby="t-prices" hidden>
-      <p class="hint">Kdo dnes v noci zdraží nebo zlevní — a komu se cena
-        pohnula za poslední kolo.</p>
+      <p class="hint">Who rises or falls tonight — and whose price moved during
+        the last gameweek.</p>
       <div id="prmsg" role="status" aria-live="polite"></div>
       <div id="prout"></div>
     </div>
 
-    <div class="panel" id="p-adv" role="tabpanel" tabindex="-1" aria-labelledby="t-adv" hidden>
-      <div id="advmsg" role="status" aria-live="polite"></div>
-      <div id="advout"></div>
-    </div>
-
-    <div class="panel" id="p-planner" role="tabpanel" tabindex="-1" aria-labelledby="t-planner" hidden>
-      <p class="hint"><b>K čemu to je:</b> záložka Transfery řeší „koho vyměnit teď“.
-        Tady si naopak vyzkoušíš, jestli se vyplatí počkat. Naklikáš tahy do
-        následujících čtyř kol a appka spočítá, kolik zbude v bance, kolik ti
-        zůstane volných přestupů a jestli za některý tah zaplatíš 4 body.
-        Nic se nikam neodesílá — přestupy pak uděláš na webu FPL.</p>
-      <div id="plnmsg" role="status" aria-live="polite"></div>
-      <div id="plnout"></div>
-    </div>
-
     <div class="panel" id="p-plan" role="tabpanel" tabindex="-1" aria-labelledby="t-plan" hidden>
-      <p class="hint">Rozpis na šest kol dopředu, blanky a doubly, kdo dnes v noci zdraží
-        a kdy má smysl vyhořet čip.</p>
+      <p class="hint">Fixtures six gameweeks ahead, blanks and doubles, and who
+        rises or falls tonight.</p>
       <div id="plmsg" role="status" aria-live="polite"></div>
       <div id="plout"></div>
     </div>
@@ -287,52 +250,38 @@
 </div>
 
 <!-- ============================================================
-     SESTAVA V OKNĚ
+     SQUAD MODAL
 
-     Jedno okno pro celou appku: kdekoli je klikatelné jméno manažera,
-     otevře se sem jeho sestava. Markup je tady, protože je společný pro
-     všechny záložky a nemá smysl ho skládat v JS při každém otevření.
+     One modal for the whole app: wherever there is a clickable manager
+     name, their squad opens here. The markup lives here because it is
+     shared by every tab and there is no point assembling it in JS on
+     every open.
      ============================================================ -->
 <div id="sqmodal" class="sqm" hidden>
   <div class="scrim" data-sqclose></div>
   <div class="card" role="dialog" aria-modal="true" aria-labelledby="sqmTitle">
-    <button type="button" class="x" data-sqclose aria-label="Zavřít">×</button>
+    <button type="button" class="x" data-sqclose aria-label="Close">×</button>
     <div class="grip" data-sqclose></div>
     <h3 id="sqmTitle"></h3>
     <div id="sqmBody"></div>
   </div>
 </div>
 
-<!-- ============================================================
-     FIREBASE
-
-     Načítá se jako ESM modul přímo z gstatic CDN — žádný bundler,
-     žádný build step, tedy nic, co by porušilo zbytek projektu.
-     Hlavní skript appky je klasický (ne modul), takže by na importy
-     nedosáhl; most tvoří window.FB, který se naplní až po inicializaci.
-
-     Config se vyplňuje v js/firebase.js. apiKey není tajemství — je to
-     identifikátor projektu, ne přístupový token; data chrání Security
-     Rules, ne to, že klíč není vidět. Prázdný config je v pořádku:
-     sync se prostě nezapne a appka běží dál na localStorage.
-     ============================================================ -->
-<script type="module" src="/js/firebase.js"></script>
-
-<!-- Pořadí není libovolné. Klasické skripty sdílejí globální scope, ale
-     hoisting přes hranici souboru neplatí: core.js definuje CONFIG, cache,
-     load() a selectTab, na kterých stojí všechno ostatní, a boot.js jako
-     poslední spouští appku. mobile.js musí být před ním — přepisuje
-     selectTab a čte TABS. -->
+<!-- The order is not arbitrary. Classic scripts share a global scope, but
+     hoisting does not cross file boundaries: core.js defines CONFIG, the
+     cache, load() and selectTab, which everything else rests on, and boot.js
+     starts the app last. mobile.js must come before it — it wraps selectTab
+     and reads TABS. gate.js defines enterApp and resetState, which boot.js
+     calls, and histcache.js must precede it because sign-out clears the
+     archive. -->
 <script src="/js/core.js"></script>
 <script src="/js/tabs.js"></script>
 <script src="/js/status.js"></script>
 <script src="/js/squad.js"></script>
-<script src="/js/h2h.js"></script>
-<script src="/js/advisor.js"></script>
 <script src="/js/news.js"></script>
 <script src="/js/ui.js"></script>
-<script src="/js/planner.js"></script>
-<script src="/js/sync.js"></script>
+<script src="/js/histcache.js"></script>
+<script src="/js/gate.js"></script>
 <script src="/js/topbar.js"></script>
 <script src="/js/mobile.js"></script>
 <script src="/js/boot.js"></script>

@@ -1,110 +1,200 @@
-/* Minileague Squad Check — jádro
+/* FPL Squad Check — core
 
-   Konfigurace, proxy na FPL API a její cache, načtení kádru, přepínání
-   záložek (TABS, selectTab), vstupní obrazovka a tvrdé obnovení.
-   Všechno ostatní na tomhle stojí — musí se načíst první.
+   Configuration, the FPL API proxy and its cache, squad loading, tab
+   switching (TABS, selectTab) and the hard refresh.
+   Everything else builds theirs_ this file — it must load first.
 
-   Soubory js/ se načítají jako klasické <script> v pevném pořadí a
-   sdílejí jeden globální scope: nic se neexportuje ani neimportuje,
-   ale hoisting přes hranici souboru neplatí. Pořadí je proto součást
-   kontraktu a je vypsané v index.html.
+   The js/ files load as classic <script> tags in a fixed order and share
+   one global scope: nothing is exported or imported, but hoisting does
+   not cross file boundaries. The order is therefore part of the contract
+   and is written down in index.html.
    ============================================================ */
 /* ============================================================
-   KONFIGURACE — vyplň si tady svoje ID a máš appku "svoji".
+   CONFIGURATION
+
+   Nothing here is hard-coded to one league. Both IDs are supplied by the
+   user theirs_ the entry screen (js/gate.js) and kept in localStorage, so the
+   same build works for any team and any classic mini-league.
    ============================================================ */
 const CONFIG = {
-  /* ---------------------------------------------------------------
-     REŽIM JEDNÉ MINILIGY
-
-     Vyplň `leagueId` a appka přestane být obecným nástrojem: stáhne si
-     soupisku ligy a na vstupní obrazovce nabídne rozbalovací seznam
-     jmen místo pole na číselné ID. Nikdo pak nemusí lovit svoje entry ID
-     v adrese FPL — vybere se ze seznamu.
-
-     Prázdné `leagueId` vrátí původní chování se dvěma poli.
-     --------------------------------------------------------------- */
-  leagueId: '14044',
+  // Filled in by the entry screen. Empty until someone signs in.
+  leagueId: '',
   entryId: '',
 
-  // Název v hlavičce a na vstupu. Prázdné = vezme se z FPL.
-  leagueName: 'O pohár Ládi Stropnického',
+  // Shown in the header; taken from the FPL API once the league loads.
+  leagueName: '',
 
-  /* Sezóny, které se v lize hrály „oficiálně“, a kdo v nich nastoupil.
+  /* League size cap. Every extra member costs one request per gameweek
+     for picks and one for history, so a big league is both slow and a
+     good way to get rate-limited by FPL. Larger leagues are refused theirs_
+     the entry screen — keep this in sync with the message there. */
+  maxMembers: 15,
 
-     FPL zná jen celkové body každého manažera — netuší, že v prvních
-     třech ročnících byli u toho jen tři lidé. Bez tohohle by se medaile
-     rozdávaly i lidem, kteří tehdy hráli sami za sebe jinde.
+  /* Seasons that count as "official" for the league history, and who
+     played in them. Empty means every season counts for every current
+     member, which is the right default for a generic build. Format:
+     {'2024/25': ['Manager Name', 12345]}. */
+  officialSeasons: {},
 
-     Klíč je název sezóny z API, hodnota seznam jmen nebo entry ID.
-     Sezóna, která tu není, se počítá pro všechny členy ligy. */
-  officialSeasons: {
-    '2020/21': ['Krystof Benka', 'Filip Buddeus', 'Adam Vrzal'],
-    '2021/22': ['Krystof Benka', 'Filip Buddeus', 'Adam Vrzal'],
-    '2022/23': ['Krystof Benka', 'Filip Buddeus', 'Adam Vrzal'],
-  },
-
-  /* Kdo se do ligy přidal později. Doplňuje `officialSeasons` pro roky,
-     kdy nebyla soupiska pevná — vypsat u každé sezóny všechny členy by
-     bylo dlouhé a rozbilo by se to při každém dalším příchodu.
-
-     Sezóny před uvedenou se počítají jako „hrál FPL, ale mimo tuhle ligu“.
-     Kdo tu není, počítá se od začátku. Klíč je jméno nebo entry ID. */
-  memberSince: {
-    'Adam Marko': '2025/26',
-  },
+  /* Members who joined later. Seasons before the one listed count as
+     "played FPL, but outside this league". Key is a name or entry ID. */
+  memberSince: {},
 };
 
-const S = {a:['OK','ok'],d:['Pochybný','wn'],i:['Zraněný','al'],
-           s:['Suspendovaný','al'],u:['Nedostupný','al'],n:['Neregistrovaný','al']};
+const S = {a:['OK','ok'],d:['Doubtful','wn'],i:['Injured','al'],
+           s:['Suspended','al'],u:['Unavailable','al'],n:['Not registered','al']};
 const POS = {1:'GKP',2:'DEF',3:'MID',4:'FWD'};
 const $ = id => document.getElementById(id);
-// Apostrof je v seznamu schválně: dneska jsou všechny atributy v dvojitých
-// uvozovkách, ale stačí jedna výjimka a chybějící &#39; se stane dírou.
+// The apostrophe is in the list theirs_ purpose: today every attribute uses
+// double quotes, but one exception is all it takes for a missing &#39; to be a hole.
 const esc = s => String(s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ------------------------------------------------------------
-   Přístup k FPL API.
+   Access to the FPL API.
 
-   Tři vrstvy nad prostým fetch, každá řeší jeden konkrétní problém:
+   Three layers theirs_ top of plain fetch, each solving one problem:
 
-   1. api()      — jeden dotaz, s opakováním při 429. FPL rate limit
-                   nevrací trvalou chybu, jen říká „počkej“.
-   2. cached()   — paměť na dobu života stránky. Miniliga a hub tahají
-                   přesně stejné adresy; podruhé už se nikam nechodí.
-   3. pooled()   — fronta s omezenou souběžností. Padesátičlenná liga
-                   znamená sto dotazů; poslané najednou skončí na 429.
+   1. api()      — a single request, retried theirs_ 429. The FPL rate limit
+                   is not a permanent error, it just says "wait".
+   2. cached()   — memory for the lifetime of the page. The league table
+                   and the hub hit the exact same URLs; the second time is free.
+   3. pooled()   — a queue with limited concurrency. A fifty-member league
+                   means a hundred requests; sent at once they end in 429.
    ------------------------------------------------------------ */
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+/* ------------------------------------------------------------
+   Last known response.
+
+   The FPL API sometimes tightens its filter for hours and starts
+   returning 403. Until now the app showed an empty screen and an error,
+   even though data from an hour ago would have done almost as well —
+   a league table does not change between gameweeks and neither do squads.
+
+   It lives in localStorage rather than memory: an outage usually hits
+   the person opening the app, not the one who already has it running.
+
+   Not everything is stored. Live gameweek points go stale in minutes and
+   old numbers presented as current are worse than an honest error, so
+   only responses that hold between gameweeks are kept.
+   ------------------------------------------------------------ */
+const STALE_KEY = 'sc:stale:';
+const STALE_TTL = 24 * 60 * 60 * 1000;   // anything older than a day is dropped
+
+// event/N/live/ is missing theirs_ purpose — see the comment above.
+const STALE_OK = [
+  /^bootstrap-static\/$/,
+  /^fixtures\//,
+  /^leagues-classic\//,
+  /^entry\/\d+\/$/,
+  /^entry\/\d+\/history\/$/,
+  /^entry\/\d+\/event\/\d+\/picks\/$/,
+];
+
+function staleSave(p, data){
+  if(!STALE_OK.some(re => re.test(p))) return;
+  try{
+    localStorage.setItem(STALE_KEY + p, JSON.stringify({ t: Date.now(), d: data }));
+  }catch(e){
+    // A full quota is no reason to fail the request. Clear what we stored
+    // earlier and it will work next time.
+    staleClear();
+  }
+}
+
+function staleLoad(p){
+  try{
+    const raw = localStorage.getItem(STALE_KEY + p);
+    if(!raw) return null;
+    const { t, d } = JSON.parse(raw);
+    if(!t || Date.now() - t > STALE_TTL){
+      localStorage.removeItem(STALE_KEY + p);
+      return null;
+    }
+    STALE_USED = Math.max(STALE_USED || 0, t);
+    return d;
+  }catch(e){ return null; }
+}
+
+function staleClear(){
+  try{
+    for(const k of Object.keys(localStorage))
+      if(k.startsWith(STALE_KEY)) localStorage.removeItem(k);
+  }catch(e){}
+}
+
+/* Age of the oldest data currently theirs_ screen. null = everything is fresh.
+   The status bar turns this into a warning. */
+let STALE_USED = null;
+
 async function api(p, tries = 3){
   for(let attempt = 0; ; attempt++){
-    const r = await fetch('/api/fpl?path=' + encodeURIComponent(p));
-    const ct = r.headers.get('content-type') || '';
-
-    if(!ct.includes('application/json')){
-      throw new Error('Serverová funkce /api/fpl neodpovídá (' + r.status + '). '
-        + 'Zkontroluj, že je nasazený soubor api/fpl.js a package.json.');
+    let r, ct, data;
+    try{
+      r = await fetch('/api/fpl?path=' + encodeURIComponent(p));
+      ct = r.headers.get('content-type') || '';
+    }catch(e){
+      // Network down. A stored response still beats a blank page.
+      const backup = staleLoad(p);
+      if(backup) return backup;
+      throw new Error('The network is not responding — check your connection.');
     }
 
-    const data = await r.json();
-    if(r.ok){ API_LAST = Date.now(); return data; }
+    if(!ct.includes('application/json')){
+      const backup = staleLoad(p);
+      if(backup) return backup;
+      throw new Error('The serverless function /api/fpl is not responding (' + r.status + '). '
+        + 'Check that api/fpl.js and package.json are deployed.');
+    }
 
-    // 429 není chyba, je to žádost o strpení. Čekáme déle po každém pokusu.
-    if(r.status === 429 && attempt < tries - 1){
+    data = await r.json();
+    if(r.ok){ API_LAST = Date.now(); staleSave(p, data); return data; }
+
+    /* What is worth retrying.
+
+       Originally only 429, because that is the one status that asks for a
+       retry. But the CDN in front of the FPL API also refuses under 403
+       and 404, and it does so at random: the same request a second later
+       goes through. One such blip in one of eleven requests brings down a
+       whole gameweek, because prices and stories need every squad at once.
+
+       So a 404 does not mean "this does not exist" — the paths are
+       whitelisted in the proxy, so a nonsensical one never gets here. It
+       means "something along the way refused", indistinguishable from 403.
+
+       The only thing not retried is a 403 from our own proxy (a path that
+       is not allowed); it is recognised by a body without upstream `detail`. */
+    /* A CDN block is deliberately NOT retried here, even though it is
+       transient and retrying would help. The proxy already does that, in
+       three stages with cookies. If the client added its own three, one
+       path would mean up to nine requests to FPL — and with eleven paths
+       per gameweek the app becomes a tool for getting yourself banned.
+       That is exactly how the first attempt at this ended.
+
+       So only what the proxy does not handle is retried: a request to wait
+       (429) and a server error. A block is allowed to fall through to staleLoad. */
+    const temporary = r.status === 429 || r.status >= 500;
+
+    if(temporary && attempt < tries - 1){
       const hinted = Number(r.headers.get('retry-after')) || 0;
       await sleep(Math.max(hinted * 1000, 700 * Math.pow(2, attempt)));
       continue;
     }
 
+    // Out of attempts. Before giving up, try the last known response —
+    // this is the situation staleLoad exists for.
+    const backup = staleLoad(p);
+    if(backup) return backup;
+
     throw new Error((data.error || 'Chyba') + ' — ' + p + ' (' + r.status + ')');
   }
 }
 
-/* Kdy se naposled něco doopravdy stáhlo. Pruh se stavem dat z toho
-   dělá čas „data před 3 min“ — bez něj se nedá poznat rozdíl mezi
-   „nic se nezměnilo“ a „appka se od rána nezeptala“. */
+/* When something was last really downloaded. The status bar turns this
+   into "data from 3 min ago" — without it there is no way to tell
+   "nothing changed" from "the app has not asked since this morning". */
 let API_LAST = null;
 
 let API_CACHE = new Map();
@@ -114,19 +204,23 @@ function cached(p){
   return API_CACHE.get(p);
 }
 
-/* Zahodí z cache všechno, co odpovídá vzoru.
+/* Drops everything matching a pattern from the cache.
 
-   Bez tohohle by tlačítko „Aktualizovat“ nic neaktualizovalo: cache žije
-   po celou dobu života stránky, takže by se vrátila tatáž data, jen by
-   se překreslila. Po deadlinu nebo během kola je to přesně to, co člověk
+   Without this the "Refresh" button would refresh nothing: the cache lives
+   for the lifetime of the page, so the same data would come back and only
+   be redrawn. After the deadline or during a gameweek that is exactly what
    nechce. */
 function dropCached(re){
   for(const key of [...API_CACHE.keys()]) if(re.test(key)) API_CACHE.delete(key);
 }
 
-/* Zpracuje seznam po `limit` položkách naráz.
-   onDone(hotovo, celkem) se volá po každé — panely tím ukazují postup. */
-async function pooled(items, fn, limit = 5, onDone = null){
+/* Processes a list `limit` items at a time.
+   onDone(done, total) fires after each one — panels use it to show progress. */
+/* How many requests run at once. It used to be five. Five concurrent
+   requests from one datacentre IP is exactly the pattern that earns a
+   block at FPL — and once it triggers, it also hits what used to pass.
+   Two are a few hundred milliseconds slower and go through. */
+async function pooled(items, fn, limit = 2, onDone = null){
   const out = new Array(items.length);
   let next = 0, done = 0;
 
@@ -144,8 +238,8 @@ async function pooled(items, fn, limit = 5, onDone = null){
   return out;
 }
 
-/* Pořadí miniligy chodí po 50 na stránku. Bez tohohle se liga o 120 lidech
-   tiše ořízne na prvních 50 a nikdo se to nedozví. */
+/* League standings arrive 50 per page. Without this a 120-member league
+   is silently cut to the first 50 and nobody finds out. */
 const LEAGUE_CAP = 200;
 
 async function fetchStandings(lid, onPage = null){
@@ -167,16 +261,16 @@ async function fetchStandings(lid, onPage = null){
 }
 
 let BOOT = null, FIX = null;
-let MY_SQUAD = null;   // Set(playerId) — naplní se po načtení vlastní sestavy
-/* Body za probíhající kolo počítá render() ze živých dat. Přehled je
-   potřebuje taky a přepočítávat je podruhé by znamenalo držet dvě
-   definice téhož čísla. */
+let MY_SQUAD = null;   // Set(playerId) — filled once the own squad loads
+/* Points for the gameweek in progress are computed by render() from live
+   data. Home needs them too, and recomputing would mean two definitions
+   of the same number. */
 let LAST_LIVE_TOTAL = null;
-let ENTRY_ID = null;   // aktuálně otevřený tým; klíčuje localStorage i cache
+let ENTRY_ID = null;   // currently open team; keys localStorage and the cache
 
 async function load(id){
   ENTRY_ID = parseInt(id, 10);
-  $('msg').textContent = 'Načítám…';
+  $('msg').textContent = 'Loading…';
   $('out').innerHTML = '<div class="skel"><i></i><i></i><i></i><i></i><i></i></div>';
   try{
     if(!BOOT){ [BOOT, FIX] = await Promise.all([api('bootstrap-static/'), api('fixtures/')]); }
@@ -199,9 +293,9 @@ async function load(id){
       catch(e){ picks = null; }
     }
 
-    // Body, které hráči v probíhajícím kole reálně mají. Dokud kolo běží,
-    // je to zajímavější než projekce na to příští — projekci si člověk
-    // otevře v neděli večer, ale v sobotu chce vědět, jak na tom je.
+    // The points a player actually has in the gameweek in progress. While
+    // the round is live this is more interesting than a projection for the
+    // next one — the projection is a Sunday-evening thing.
     let live = null;
     if(cur){
       try {
@@ -218,8 +312,8 @@ async function load(id){
       HOME = {entry, picks: null, startGw, liveTotal: null};
       drawHome();
       renderPreseason(entry, startGw);
-      $('msg').innerHTML = 'Sestava zatím není veřejná — FPL ji zpřístupní až po deadlinu '
-        + 'GW' + startGw + '. Zatím ukazuju stav hráčů v celé lize.';
+      $('msg').innerHTML = 'Your squad is not public yet — FPL reveals it after the '
+        + 'GW' + startGw + ' deadline. Showing player status across the league instead.';
     }
   }catch(e){
     $('msg').innerHTML = errBox(e.message, null, () => load(ENTRY_ID));
@@ -227,53 +321,53 @@ async function load(id){
 }
 
 /* ============================================================
-   EFEKTIVNÍ SESTAVA — autosuby a kapitánská páska
+   EFFECTIVE LINEUP — autosubs and the captain's armband
 
-   FPL nepočítá body podle toho, koho manažer postavil, ale podle toho,
-   kdo nakonec hrál. Když někdo ze základu neodehraje ani minutu,
-   nastoupí za něj náhradník z lavičky v pořadí 12→15, pokud to dovolí
-   formace. A když neodehraje kapitán, přechází násobička na
-   vicekapitána.
+   FPL does not score the team a manager picked, it scores the team that
+   ended up playing. If a starter does not play a single minute, a bench
+   player comes in in order 12→15, as long as the formation allows it.
+   And if the captain does not play, the multiplier moves to the vice
+   captain.
 
-   Appka tohle dřív nedělala nikde: dres na Přehledu, živá tabulka
-   Miniligy, H2H skóre i ceny kola sčítaly hráče s `multiplier > 0` a nic
-   víc. Po dohraném kole tím ukazovaly méně bodů, než manažer doopravdy
-   měl — a u H2H to znamenalo zápas, který mohl skončit obráceně, než
+   The app used to do none of this: the shirt view theirs_ Home, the live
+   league table and gameweek awards all summed players with `multiplier > 0`
+   and nothing more. After a finished gameweek that showed fewer points
+   than the manager really had.
    jak dopadl.
 
-   Proto jedna funkce a čtyři místa, která ji volají. Kdyby FPL pravidla
-   změnilo, mění se to tady, ne na čtyřech místech s pokaždé trochu
-   jiným zaokrouhlením.
+   Hence one function and several call sites. If FPL changes the rules,
+   it changes here, not in four places each rounding slightly differently.
+
 
    Vstup:
      pk    — objekt z entry/{id}/event/{gw}/picks/
      stats — Map(playerId → {minutes, total_points}) z event/{gw}/live/
-     gw    — číslo kola; slouží k dohledání rozpisu
+     gw    — gameweek number; used to look up fixtures
 
-   Výstup: {rows, total, benchTotal, toPlay, capId, subs}
+   Output: {rows, total, benchTotal, toPlay, capId, subs}
    ============================================================ */
 
-/* Odehrál hráč pro tohle kolo všechno, co měl?
+/* Has this player finished everything he had in this gameweek?
 
-   Podstatné pro autosuby: dokud jeho tým ještě hraje, není nula nula —
-   je to „zatím“. FPL substituci provede až po posledním zápase kola,
-   takže dřív ji dělat nesmíme ani my, jinak by se během soboty střídalo
-   tam a zpátky.
+   This matters for autosubs: while his team is still playing, zero is not
+   zero — it is "not yet". FPL only substitutes after the last match of the
+   gameweek, so we must not do it earlier either, or players would swap
+   back and forth all Saturday.
 
-   Bez rozpisu (nebo u hráče bez zápasu) se odpovídá `false`: raději
-   nesubstituovat než substituovat na základě dohadu. */
+   Without fixtures (or for a player with no match) the answer is `false`:
+   better not to substitute than to substitute theirs_ a guess. */
 function playerDone(pid, gw){
   const el = (BOOT && BOOT.elements || []).find(p => p.id === pid);
   if(!el || !Array.isArray(FIX)) return false;
   const fs = FIX.filter(f => f.event === gw &&
     (f.team_h === el.team || f.team_a === el.team));
-  if(!fs.length) return false;   // blank: střídat za koho není proč čekat, ale ani není jistota
+  if(!fs.length) return false;   // blank: nobody to sub for, but no certainty either
   return fs.every(f => f.finished || f.finished_provisional);
 }
 
-/* Smí sestava vypadat takhle? FPL uznává 1 brankáře, aspoň 3 obránce
-   a aspoň jednoho útočníka; víc pravidel netřeba, zbytek z toho plyne
-   (na patnáctičlenný kádr nezbyde než mít aspoň dva záložníky). */
+/* Is this a legal formation? FPL requires 1 goalkeeper, at least 3
+   defenders and at least one forward; no more rules are needed, the rest
+   follows (a fifteen-man squad leaves at least two midfielders). */
 function validShape(types){
   const c = t => types.filter(x => x === t).length;
   return types.length === 11 && c(1) === 1 && c(2) >= 3 && c(4) >= 1;
@@ -288,14 +382,14 @@ function resolveLineup(pk, stats, gw){
   const picks = (pk.picks || []).slice().sort((a, b) => a.position - b.position);
   const bench = picks.filter(x => x.position > 11);
 
-  /* Bench Boost hraje celý kádr, takže není koho a za koho střídat.
-     Rozeznává se podle násobičky na lavičce, ne podle názvu čipu —
-     `active_chip` u cizích manažerů občas chybí. */
+  /* Bench Boost plays the whole squad, so there is nobody to substitute.
+     It is detected from the bench multiplier rather than the chip name —
+     `active_chip` is sometimes missing for other managers. */
   const bboost = pk.active_chip === 'bboost' || bench.some(x => x.multiplier > 0);
 
-  // Efektivní násobička; výchozí je ta z picku.
+  // Effective multiplier; the pick's own value is the default.
   const mult = new Map(picks.map(x => [x.element, x.multiplier]));
-  const subs = [];   // [{out, in}] — jen pro zobrazení
+  const subs = [];   // [{out, in}] — display only
 
   if(!bboost){
     const xi = picks.filter(x => x.position <= 11).map(x => x.element);
@@ -308,7 +402,7 @@ function resolveLineup(pk, stats, gw){
       for(const cand of lavice){
         if(mins(cand) <= 0 || subs.some(s => s.in === cand)) continue;
 
-        // Brankář se střídá jen za brankáře; u ostatních rozhoduje formace.
+        // A keeper is only replaced by a keeper; for the rest the formation decides.
         const zkus = xi.map(id => (id === out ? cand : id)).map(typ);
         if(!validShape(zkus)) continue;
 
@@ -322,9 +416,9 @@ function resolveLineup(pk, stats, gw){
     }
   }
 
-  /* Kapitánská páska. Když kapitán neodehrál a jeho zápasy skončily,
-     přebírá ji vicekapitán — i s trojnásobkem, pokud je aktivní Triple
-     Captain. Když nehrál ani vicekapitán, nezdvojuje se nikdo. */
+  /* The armband. If the captain did not play and his matches are over,
+     the vice captain takes over — including the triple if Triple Captain
+     is active. If neither played, nobody is doubled. */
   const cptn = picks.find(x => x.is_captain);
   const vice = picks.find(x => x.is_vice_captain);
   let capId = cptn ? cptn.element : null;
@@ -355,8 +449,8 @@ function resolveLineup(pk, stats, gw){
   return {rows, total, benchTotal, toPlay, capId, subs, cost, bboost};
 }
 
-/* Mapa hráč → statistiky z event/{gw}/live/. Všechny volající chtějí
-   totéž, tak ať to nedělá každý po svém. */
+/* Player → stats map from event/{gw}/live/. Every caller wants the same
+   thing, so let them not each do it their own way. */
 function liveStats(data){
   return new Map(((data && data.elements) || []).map(e => [e.id, e.stats || {}]));
 }
@@ -373,9 +467,9 @@ function fdr(teamId, startGw, n){
   return {list: out, avg};
 }
 
-/* Zápasy jednoho týmu v jednom konkrétním kole.
-   Délka pole je to podstatné: 0 = blank, 2 = double. FPL tuhle informaci
-   nikde neposkytuje přímo, plyne až z rozpisu. */
+/* One team's fixtures in one specific gameweek.
+   The length of the array is the point: 0 = blank, 2 = double. FPL never
+   states this directly, it follows from the fixture list. */
 function gwFixtures(teamId, gw){
   const out = [];
   for(const f of FIX){
@@ -386,7 +480,7 @@ function gwFixtures(teamId, gw){
   return out;
 }
 
-/* Přehled blanků a doublů napříč ligou pro rozsah kol. */
+/* Blanks and doubles across the league for a range of gameweeks. */
 function gwShape(startGw, n){
   const out = [];
   for(let gw = startGw; gw < startGw + n; gw++){
@@ -418,18 +512,18 @@ function renderPreseason(entry, startGw){
 
   $('out').innerHTML = `
     <div class="meta">
-      <div><div class="k">Tým</div><div class="v">${esc(entry.name)}</div></div>
-      <div><div class="k">Manažer</div><div class="v">${esc(entry.player_first_name + ' ' + entry.player_last_name)}</div></div>
-      <div><div class="k">Další kolo</div><div class="v">GW${startGw}</div></div>
-      <div><div class="k">Hlášení</div><div class="v">${flagged.length}</div></div>
+      <div><div class="k">Team</div><div class="v">${esc(entry.name)}</div></div>
+      <div><div class="k">Manager</div><div class="v">${esc(entry.player_first_name + ' ' + entry.player_last_name)}</div></div>
+      <div><div class="k">Next gameweek</div><div class="v">GW${startGw}</div></div>
+      <div><div class="k">Flagged</div><div class="v">${flagged.length}</div></div>
     </div>
 
-    <h2>Zranění a suspendovaní · celá liga</h2>
+    <h2>Injuries and suspensions · whole league</h2>
     <table>
       <thead><tr>
-        <th>Hráč</th><th class="hide-s">Tým</th><th>Poz</th>
-        <th class="n">Cena</th><th class="n hide-s">Vlastní %</th>
-        <th>Stav</th><th class="hide-s">Zpráva</th>
+        <th>Player</th><th class="hide-s">Team</th><th>Pos</th>
+        <th class="n">Price</th><th class="n hide-s">Owned %</th>
+        <th>Status</th><th class="hide-s">News</th>
       </tr></thead>
       <tbody>${flagged.map(s => `<tr>
         <td><b>${esc(s.p.web_name)}</b></td>
@@ -442,9 +536,9 @@ function renderPreseason(entry, startGw){
       </tr>`).join('')}</tbody>
     </table>
 
-    <h2>Program na 5 kol · nejlehčí nahoře</h2>
+    <h2>Next 5 gameweeks · easiest first</h2>
     <table>
-      <thead><tr><th>Tým</th><th class="n">FDR</th><th class="n">Záp.</th><th>Soupeři</th></tr></thead>
+      <thead><tr><th>Team</th><th class="n">FDR</th><th class="n">Matches</th><th>Opponents</th></tr></thead>
       <tbody>${fdrRows.map(r => `<tr>
         <td><b>${esc(r.short)}</b></td>
         <td class="n">${r.avg.toFixed(2)}</td>
@@ -459,15 +553,15 @@ function render(entry, picks, startGw, liveCtx){
   const els = Object.fromEntries(BOOT.elements.map(p => [p.id, p]));
 
   MY_SQUAD = new Set(picks.picks.map(pk => pk.element));
-  // Teď teprve víme, kdo má v kterém kole volno — kolejnice dostane tečky.
+  // Only now do we know who has a blank — the season rail gets its dots.
   drawRail();
 
   const live = liveCtx && liveCtx.live;
   const liveGw = liveCtx ? liveCtx.gw : null;
 
-  /* Efektivní sestava po autosubech a po případném přesunu kapitánské
-     pásky. Bez ní by dres ukazoval nulu u hráče, za kterého FPL dávno
-     nasadilo náhradníka — a součet kola by byl nižší než na webu FPL. */
+  /* The effective lineup after autosubs and a possible armband move.
+     Without it the shirt view would show zero for a player FPL has long
+     since replaced — and the gameweek total would be lower than theirs_ FPL. */
   const lineup = live ? resolveLineup(picks, live, liveGw) : null;
   const efekt = lineup
     ? new Map(lineup.rows.map(r => [r.element, r])) : null;
@@ -476,15 +570,15 @@ function render(entry, picks, startGw, liveCtx){
     const p = els[pk.element];
     const f = fdr(p.team, startGw, 5);
 
-    // Body, které hráč v probíhajícím kole opravdu má, včetně násobiče
-    // za kapitána. `played` odlišuje nulu od „ještě nenastoupil“ —
-    // to jsou dvě úplně jiné zprávy.
+    // The points a player really has in the gameweek in progress, including
+    // the captain multiplier. `played` separates a zero from "has not
+    // started yet" — two completely different messages.
     const st = live ? live.get(pk.element) : null;
     const ef = efekt ? efekt.get(pk.element) : null;
     const gwPts = ef ? ef.pts : null;
 
     return {p, pk, team: teams[p.team], f, ef,
-            // Kdo přišel autosubem, hraje — i když ho manažer nepostavil.
+            // A player brought theirs_ by an autosub is playing, even if he was benched.
             starting: ef ? ef.mult > 0 : pk.position <= 11,
             st, gwPts,
             played: st ? st.minutes > 0 : false,
@@ -494,7 +588,7 @@ function render(entry, picks, startGw, liveCtx){
   const rows = {1:[],2:[],3:[],4:[]};
   squad.filter(s => s.starting).forEach(s => rows[s.p.element_type].push(s));
 
-  // Součet za kolo — to je číslo, kvůli kterému se člověk během soboty dívá.
+  // The gameweek total — the number people open the app for theirs_ a Saturday.
   const liveTotal = lineup ? lineup.total : null;
   LAST_LIVE_TOTAL = liveTotal;
   if(typeof drawChip === 'function') drawChip();
@@ -502,12 +596,12 @@ function render(entry, picks, startGw, liveCtx){
   const benchTotal = lineup ? lineup.benchTotal : null;
   const toPlay = lineup ? lineup.toPlay : null;
 
-  /* Na dresu je během kola to, co hráč skutečně nasbíral. FDR na příští
-     kolo se vrátí, jakmile kolo skončí a začne se plánovat další. */
+    /* During a gameweek the shirt shows what the player actually scored.
+       Next-gameweek FDR comes back once the round is over. */
   const shirt = s => {
-    /* Páska podle toho, kdo ji opravdu má: když kapitán neodehrál,
-       přešla na vicekapitána a dres to musí ukázat, jinak nesedí
-       zdvojené body s označením. */
+    /* The armband follows whoever really has it: if the captain did not
+       play it moved to the vice captain, and the shirt has to show that,
+       or the doubled points would not match the badge. */
     const jeCap = s.ef ? s.ef.captain : s.pk.is_captain;
     const cap = jeCap ? '<span class="cap">C</span>'
               : s.pk.is_vice_captain ? '<span class="cap v">V</span>' : '';
@@ -520,7 +614,7 @@ function render(entry, picks, startGw, liveCtx){
 
     const foot2 = live
       ? `<div class="mn${s.played ? '' : ' wait'}">${
-          s.played ? s.st.minutes + '′' : 'zatím nehrál'}</div>`
+          s.played ? s.st.minutes + '′' : 'not played yet'}</div>`
       : '';
 
     return `<div class="shirt ${s.p.status}${live && s.played ? ' done' : ''}${
@@ -533,34 +627,34 @@ function render(entry, picks, startGw, liveCtx){
     </div>`;
   };
 
-  /* --- kapitán, optimální jedenáctka a tvar programu ---
-     Tohle je jediná část panelu, která něco doporučuje. Všechno ostatní
-     jen popisuje stav; tady appka říká, co by udělala jinak. */
+  /* --- captain, best XI and fixture shape ---
+     This is the only part of the panel that recommends anything. Everything
+     else just describes state; here the app says what it would do. */
 
-  /* Hlavní číslo je oficiální projekce FPL (`ep_next`). Můj model slouží
-     jen jako druhý pohled a jako záloha, když FPL projekci nepošle —
-     a u double kol, která `ep_next` nezohledňuje, protože je vždy
-     za jedno kolo bez ohledu na počet zápasů. */
+  /* The headline number is the official FPL projection (`ep_next`). The
+     own model is only a second opinion and a fallback when FPL sends no
+     projection — and for double gameweeks, which `ep_next` ignores because
+     it is always for one match regardless of how many are played. */
   const withXp = squad.map(s => {
     const ep = epNext(s.p);
     const model = projectGw(s.p, startGw);
     const games = gwFixtures(s.p.team, startGw).length;
     return {...s, ep, model, games,
-            // v doublu má FPL projekce jen jeden zápas, model oba
+            // in a double FPL's projection covers one match, the model both
             xp: ep === null ? model : (games > 1 ? Math.max(ep, model) : ep)};
   });
   const best = bestEleven(withXp);
 
-  /* Doporučení kapitána podle xP a optimální jedenáctka odsud odešly.
+  /* Captain recommendations by xP and the optimal XI used to live here.
 
-     Důvod: `ep_next` chodí od FPL zaokrouhlené na desetinu a u špičkových
-     hráčů vychází prakticky stejně, takže z něj pořadí nevznikne. Appka
-     pak sama psala „doporučit jednoho z nich nemá čím“ — což je poctivé,
-     ale k ničemu. Místo toho ukazujeme rozpis a necháváme rozhodnutí
-     na uživateli. */
+     Reason: `ep_next` arrives from FPL rounded to one decimal and for top
+     players comes out practically identical, so no ranking emerges. The app
+     then wrote "there is nothing to pick between them" — honest, but
+     useless. Instead we show the fixtures and leave the decision to the
+     user. */
   const capHtml = easiestFixtures(squad, startGw) + topPriceBlock(squad, startGw);
 
-  // Blanky a doubly v následujících kolech, ale jen ty, které se týkají tebe.
+  // Blanks and doubles in the coming gameweeks, but only those that affect you.
   const shapeWarn = gwShape(startGw, 6).map(x => {
     const blank = x.blanks.filter(t => squad.some(s => s.p.team === t.id));
     const dbl = x.doubles.filter(t => squad.some(s => s.p.team === t.id));
@@ -569,8 +663,8 @@ function render(entry, picks, startGw, liveCtx){
     const cntD = squad.filter(s => dbl.some(t => t.id === s.p.team)).length;
     return `<div class="alert ${cntB >= 4 ? 'bad' : ''}">
       <div class="top"><span class="who">GW${x.gw}</span>
-        ${cntB ? `<span class="tag">${cntB} hráčů nehraje</span>` : ''}
-        ${cntD ? `<span class="tag">${cntD} hráčů hraje dvakrát</span>` : ''}
+        ${cntB ? `<span class="tag">${cntB} players not playing</span>` : ''}
+        ${cntD ? `<span class="tag">${cntD} players play twice</span>` : ''}
       </div>
       <div class="txt">${
         cntB ? 'Blank: ' + blank.map(t => esc(t.short_name)).join(', ') + '. ' : ''}${
@@ -579,8 +673,8 @@ function render(entry, picks, startGw, liveCtx){
   }).filter(Boolean);
 
   const shapeHtml = shapeWarn.length
-    ? `<h2>Co tě čeká v rozpisu${info(`Blank znamená nula bodů od celého klubu. Když ti vypadnou čtyři
-       a víc hráčů, je to kolo pro free hit — podrobnosti v záložce Program.`)}</h2><div class="alerts">${shapeWarn.join('')}</div>
+    ? `<h2>What the fixtures hold${info(`A blank means zero points from a whole
+       club. If four or more of your players drop out, it is a free hit gameweek — details in the Fixtures tab.`)}</h2><div class="alerts">${shapeWarn.join('')}</div>
        `
     : '';
 
@@ -592,19 +686,19 @@ function render(entry, picks, startGw, liveCtx){
       <div class="top">
         <span class="who">${esc(s.p.web_name)}</span>
         <span class="tag">${esc(s.team.short_name)} · ${POS[s.p.element_type]}</span>
-        <span class="tag">${s.starting ? 'Základ' : 'Lavička'}</span>
+        <span class="tag">${s.starting ? 'Starting' : 'Bench'}</span>
         <span class="tag">${S[s.p.status][0]} · ${s.chance}%</span>
       </div>
       ${s.p.news ? `<div class="txt">${esc(s.p.news)}</div>` : ''}
     </div>`).join('')
-    : '<div class="alert" style="border-left-color:var(--ok)"><div class="top"><span class="who">Nikdo není hlášený jako zraněný ani suspendovaný.</span></div></div>';
+    : '<div class="alert" style="border-left-color:var(--ok)"><div class="top"><span class="who">Nobody is flagged as injured or suspended.</span></div></div>';
 
-  /* --- přehled kádru po pozicích ---
+  /* --- squad overview by position ---
 
-     Jedna dlouhá tabulka patnácti řádků nemá strukturu. Rozdělení podle
-     pozic dá součty za skupinu (kde mám zabité peníze) a hlavně umožní
-     dát ke každému hráči rozpis dalších tří kol — to je věc, kvůli které
-     lidi chodí na jiné weby. */
+     One long fifteen-row table has no structure. Splitting by position
+     gives per-group totals (where the money is tied up) and, more
+     importantly, room for each player's next three fixtures — the thing
+     people visit other sites for. */
 
   computeFdrCuts(startGw, 3);
 
@@ -622,7 +716,7 @@ function render(entry, picks, startGw, liveCtx){
       if(!fxs.length){
         out.push('<span class="blank" title="Blank — klub v tomhle kole nehraje">–<small>bl</small></span>');
       } else {
-        // Double: obě zkratky do jedné buňky, ať kolo zůstane kolem.
+        // Double: both abbreviations in one cell, so a gameweek stays a gameweek.
         out.push(fxs.map(f => gwCell({...f, od: ownFdr(p.team, f.opp, f.home, f.d)})).join(''));
       }
     }
@@ -632,8 +726,8 @@ function render(entry, picks, startGw, liveCtx){
   const priceMove = p => {
     const d = p.cost_change_start || 0;
     if(!d) return '';
-    return `<i class="mv ${d > 0 ? 'up' : 'down'}" title="Od začátku sezóny ${
-      d > 0 ? 'zdražil' : 'zlevnil'} o ${Math.abs(d / 10).toFixed(1)}m">${d > 0 ? '▲' : '▼'}</i>`;
+    return `<i class="mv ${d > 0 ? 'up' : 'down'}" title="Since the start of the season ${
+      d > 0 ? 'up' : 'down'} by ${Math.abs(d / 10).toFixed(1)}m">${d > 0 ? '▲' : '▼'}</i>`;
   };
 
   const pRow = s2 => {
@@ -641,10 +735,10 @@ function render(entry, picks, startGw, liveCtx){
     const dot = s2.p.status !== 'a' || s2.chance <= 50 ? 'bad'
               : s2.chance < 100 ? 'warn' : 'ok';
 
-    /* Hodnoty pro řazení jdou do data-atributů, ne do parsování textu.
-       V buňkách je „5.5▲“, „8.7 %“ a „–“ — z toho by se čísla tahala
-       regulárem a první nečíselný stav (blank, nehrál) by řazení tiše
-       rozhodil. Chybějící hodnota je -1, aby padala na konec. */
+    /* Sort values go into data attributes rather than being parsed from
+       the text. The cells hold "5.5▲", "8.7 %" and "–"; pulling numbers
+       out of that with a regex would break silently theirs_ the first
+       non-numeric state. A missing value is -1 so it sorts last. */
     return `<div class="prow${s2.starting ? '' : ' benched'}${owned < 5 ? ' diff' : ''}"
       data-cena="${s2.p.now_cost}"
       data-body="${s2.p.total_points}"
@@ -661,40 +755,40 @@ function render(entry, picks, startGw, liveCtx){
         <em>${esc(s2.team.short_name)}</em>
         ${s2.pk.is_captain ? '<span class="badge cap">C</span>'
           : s2.pk.is_vice_captain ? '<span class="badge">V</span>' : ''}
-        ${owned < 5 ? '<span class="badge dif">diferenciál</span>' : ''}
+        ${owned < 5 ? '<span class="badge dif">differential</span>' : ''}
         ${s2.chance < 100 ? `<span class="badge warn">${s2.chance}&nbsp;%</span>` : ''}
       </span>
-      <span class="n" data-l="Cena">${(s2.p.now_cost / 10).toFixed(1)}${priceMove(s2.p)}</span>
-      <span class="n" data-l="Body"><b>${s2.p.total_points}</b></span>
-      <span class="n" data-l="Forma">${s2.p.form}</span>
+      <span class="n" data-l="Price">${(s2.p.now_cost / 10).toFixed(1)}${priceMove(s2.p)}</span>
+      <span class="n" data-l="Pts"><b>${s2.p.total_points}</b></span>
+      <span class="n" data-l="Form">${s2.p.form}</span>
       <span class="n" data-l="FDR">${s2.f.avg ? s2.f.avg.toFixed(1) : '–'}</span>
       ${live ? `<span class="n gwpts" data-l="GW${liveGw}">${s2.played
         ? `<b>${s2.gwPts}</b>` : '<span class="wait">–</span>'}</span>` : ''}
       ${nextThree(s2.p)}
-      <span class="n own" data-l="Vlastní">${owned.toFixed(1)}&nbsp;%</span>
+      <span class="n own" data-l="Owned">${owned.toFixed(1)}&nbsp;%</span>
     </div>`;
   };
 
   const GROUPS = [
-    [1, 'Brankáři'], [2, 'Obránci'], [3, 'Záložníci'], [4, 'Útočníci'],
+    [1, 'Goalkeepers'], [2, 'Defenders'], [3, 'Midfielders'], [4, 'Forwards'],
   ];
 
-  /* Hlavička je tlačítko v obou režimech. Po pozicích řadí uvnitř
-     skupin, v režimu Celkem přes celý kádr — v obou případech dělá to,
-     co slibuje, jen v jiném rozsahu.
+  /* The header is a button in both modes. By position it sorts inside the
+     groups, in Whole squad mode across all fifteen — in both cases it does
+     what it promises, just over a different range.
 
-     Směr: u FDR dává smysl začít od nejmenšího (nejlehčí los), u všeho
-     ostatního od největšího. */
+     Direction: for FDR the smallest first makes sense (easiest fixtures),
+     for everything else the largest. */
   const th = (key, label, cls) => `<span class="${cls}"
     data-sort="${key}" role="button" tabindex="0">${label}<i class="sar"></i></span>`;
 
   const head = `<div class="phead${live ? ' live' : ''}">
-    <span>Hráč</span>
-    ${th('cena', 'Cena', 'n')}${th('body', 'Body', 'n')}
-    ${th('forma', 'Forma', 'n')}${th('fdr', 'FDR', 'n')}
+    <span>Player</span>
+    ${th('cena', 'Price', 'n')}${th('body', 'Pts', 'n')}
+    ${th('forma', 'Form', 'n')}${th('fdr', 'FDR', 'n')}
     ${live ? th('gw', 'GW' + liveGw, 'n') : ''}
     <span class="tickhead">GW${startGw}–${startGw + 2}</span>
-    ${th('own', 'Vlastní', 'n')}
+    ${th('own', 'Owned', 'n')}
   </div>`;
 
   const groupHtml = GROUPS.map(([type, label]) => {
@@ -702,7 +796,7 @@ function render(entry, picks, startGw, liveCtx){
     if(!inGroup.length) return '';
     const cost = inGroup.reduce((a2, x) => a2 + x.p.now_cost, 0) / 10;
     return `<div class="pgroup">${esc(label)}
-        <span>${inGroup.length} nasazen${inGroup.length === 1 ? 'ý' : 'í'} · ${cost.toFixed(1)}m</span>
+        <span>${inGroup.length} selected · ${cost.toFixed(1)}m</span>
       </div>
       ${inGroup.map(pRow).join('')}`;
   }).join('');
@@ -711,107 +805,107 @@ function render(entry, picks, startGw, liveCtx){
     .sort((x, y) => x.pk.position - y.pk.position);
   const benchXp = benchList.reduce((a2, x) => a2 + (x.xp || 0), 0);
 
-  const benchHtml = benchList.length ? `<div class="pgroup bench-h">Lavička
-      <span>${benchList.length} hráči · ${benchXp.toFixed(1)} xP${
-        live ? ` · ${benchTotal} bodů` : ''}</span>
+  const benchHtml = benchList.length ? `<div class="pgroup bench-h">Bench
+      <span>${benchList.length} players · ${benchXp.toFixed(1)} xP${
+        live ? ` · ${benchTotal} pts` : ''}</span>
     </div>${benchList.map(pRow).join('')}` : '';
 
-  /* Řádky jsou v DOM jednou. Přepínač i řazení jen přeskládají to,
-     co už tam je — žádné druhé vykreslení, žádná druhá kopie dat,
-     která by se mohla rozejít s první. */
-  const squadTable = `<div class="subnav" role="tablist" aria-label="Zobrazení kádru">
+  /* The rows exist in the DOM once. The view switch and sorting only
+     rearrange what is already there — no second render, no second copy of
+     the data that could drift apart from the first. */
+  const squadTable = `<div class="subnav" role="tablist" aria-label="Squad view">
       <button type="button" role="tab" data-squadview="pos"
-        aria-selected="${SQUAD_VIEW === 'pos'}">Po pozicích</button>
+        aria-selected="${SQUAD_VIEW === 'pos'}">By position</button>
       <button type="button" role="tab" data-squadview="all"
-        aria-selected="${SQUAD_VIEW === 'all'}">Kádr celkem</button>
+        aria-selected="${SQUAD_VIEW === 'all'}">Whole squad</button>
     </div>
     <div class="squadlist${live ? ' live' : ''}${
       SQUAD_VIEW === 'all' ? ' flat' : ''}" id="squadlist">
       ${head}${groupHtml}${benchHtml}
     </div>
     <div class="fdrleg">
-      <span><i class="f1"></i>snadný</span><span><i class="f2"></i></span>
-      <span><i class="f3"></i>průměr</span><span><i class="f4"></i></span>
-      <span><i class="f5"></i>těžký</span><span><i class="blank"></i>blank</span>
-      <span class="hint">VELKÁ = doma · malá = venku · dvě zkratky v poli = double</span>
+      <span><i class="f1"></i>easy</span><span><i class="f2"></i></span>
+      <span><i class="f3"></i>average</span><span><i class="f4"></i></span>
+      <span><i class="f5"></i>hard</span><span><i class="blank"></i>blank</span>
+      <span class="hint">CAPS = home · lower case = away · two clubs in a cell = double</span>
     </div>`;
 
   $('out').innerHTML = `
     <div class="meta">
-      <div><div class="k">Tým</div><div class="v">${esc(entry.name)}</div></div>
-      <div><div class="k">Manažer</div><div class="v">${esc(entry.player_first_name + ' ' + entry.player_last_name)}</div></div>
+      <div><div class="k">Team</div><div class="v">${esc(entry.name)}</div></div>
+      <div><div class="k">Manager</div><div class="v">${esc(entry.player_first_name + ' ' + entry.player_last_name)}</div></div>
       <div><div class="k">Body</div><div class="v">${entry.summary_overall_points ?? '–'}</div></div>
-      <div><div class="k">Pořadí</div><div class="v">${entry.summary_overall_rank ? entry.summary_overall_rank.toLocaleString('cs-CZ') : '–'}</div></div>
-      <div><div class="k">Další kolo</div><div class="v">GW${startGw}</div></div>
+      <div><div class="k">Overall rank</div><div class="v">${entry.summary_overall_rank ? entry.summary_overall_rank.toLocaleString('en-GB') : '–'}</div></div>
+      <div><div class="k">Next gameweek</div><div class="v">GW${startGw}</div></div>
     </div>
 
     <div class="pitch">
       ${live ? `<div class="livebar${liveCtx.finished ? ' done' : ''}">
-        <div class="big">${liveTotal}<span>bodů v GW${liveGw}</span></div>
-        <div><b>${benchTotal}</b><span>na lavičce</span></div>
-        <div><b>${toPlay || '–'}</b><span>ještě nehrálo</span></div>
+        <div class="big">${liveTotal}<span>pts in GW${liveGw}</span></div>
+        <div><b>${benchTotal}</b><span>theirs_ the bench</span></div>
+        <div><b>${toPlay || '–'}</b><span>yet to play</span></div>
         <div class="txt">${liveCtx.finished
-          ? 'Kolo je uzavřené, čísla jsou konečná.'
-          : 'Průběžně — bonusy z BPS se po zápase ještě mohou změnit.'}</div>
+          ? 'The gameweek is closed, the numbers are final.'
+          : 'Live — bonus points from BPS can still change after a match.'}</div>
       </div>` : ''}
       ${[4,3,2,1].map(t => `<div class="row">${rows[t].map(shirt).join('')}</div>`).join('')}
     </div>
 
     ${capHtml}
 
-    <h2>Upozornění</h2>
+    <h2>Alerts</h2>
     <div class="alerts">${alertHtml}</div>
 
     ${shapeHtml}
 
-    <h2>Kádr${info(`<b>Po pozicích</b> drží hráče ve skupinách i s cenou za
-    skupinu. <b>Kádr celkem</b> je jeden seznam všech patnácti, který se dá
-    seřadit kliknutím na hlavičku sloupce — podle ceny, bodů, formy, FDR,
-    bodů posledního kola i vlastnictví. Druhé kliknutí obrátí směr.<br><br>${live
-      ? `Sloupec GW${liveGw} jsou body, které hráč v tomhle kole opravdu má (u kapitána
-         už zdvojené). `
-      : ''}Sloupec FDR je průměr přes dalších pět kol, barevný rozpis vedle něj ukazuje
-    konkrétní soupeře na tři kola. ${strengthsReady()
-      ? 'Obtížnost počítám z útočné a obranné síly obou týmů a barvy jsou relativní — '
-        + 'nejtěžší pětina zápasů v daném okně je červená.'
+    <h2>Squad${info(`<b>By position</b> keeps players in groups with the cost of
+    each group. <b>Whole squad</b> is a single list of all fifteen that can be
+    sorted by clicking a column header — by price, points, form, FDR, last
+    gameweek's points and ownership. A second click reverses the order.<br><br>${live
+      ? `The GW${liveGw} column is the points the player really has this gameweek (already
+         doubled for the captain). `
+      : ''}The FDR column is an average over the next five gameweeks; the coloured strip
+    beside it shows the actual opponents for three. ${strengthsReady()
+      ? 'Difficulty is computed from the attacking and defensive strength of both teams and the colours are relative — '
+        + 'the hardest fifth of fixtures in the window is red.'
       : strengthsUsable()
-      ? 'Útočná a obranná síla zatím v datech není, takže počítám z <b>celkové síly '
-        + 'týmů</b> (stupnice 1–5). Domácí a venkovní zápas rozliším, ale čísla jsou '
-        + 'hrubší, než budou za pár kol.'
-      : '<b>Používám oficiální FDR od FPL</b>, protože síly týmů zatím nejsou v datech '
-        + 'vyplněné vůbec.'}`)}</h2>
+      ? 'Attacking and defensive strength are not in the data yet, so this uses <b>overall team '
+        + 'strength</b> (a 1–5 scale). Home and away are still distinguished, but the numbers are '
+        + 'rougher than they will be in a few gameweeks.'
+      : '<b>Using the official FPL FDR</b>, because team strengths are not filled in at all '
+        + 'yet.'}`)}</h2>
     
     ${squadTable}`;
 
-  /* Zobrazení i řazení přežívají překreslení sestavy (⟳, změna kola).
-     Volá se až po zápisu do DOM — applySquadSort si řádky hledá. */
+  /* The view and the sort survive a squad redraw (⟳, gameweek change).
+     Called after the DOM write — applySquadSort looks the rows up. */
   applySquadSort();
 }
 
 /* ============================================================
-   ÚVODNÍ STRÁNKA
+   HOME
 
-   Sestava je hustý panel: patnáct řádků, rozpis, program, ceny.
-   Odpovídá na „jak na tom jsem“, ale ne na „musím dneska něco
-   udělat?“ — a to je jediná otázka, kterou si člověk klade každý den.
+   The squad panel is dense: fifteen rows, fixtures, schedule, prices.
+   It answers "how am I doing", but not "do I have to do something
+   today?" — and that is the one question people ask every day.
 
-   Přehled proto neukazuje nic nového. Vytahuje jen to, co má lhůtu:
-   kdo nenastoupí, komu se dnes v noci pohne cena a co se děje
-   s hráči na watchlistu. Všechno ostatní zůstává tam, kde bylo.
+   So Home shows nothing new. It only pulls out what has a deadline:
+   who will not play, whose price moves tonight and what is happening
+   to the players theirs_ the watchlist. Everything else stays where it was.
 
-   Panel se překresluje ze stavu, který už appka má (HOME), takže
-   nestahuje ani jeden dotaz navíc. Když sestava ještě není veřejná,
-   ukáže se aspoň watchlist a odpočet.
+   The panel redraws from state the app already has (HOME), so it costs
+   no extra request. When the squad is not public yet, at least the
+   watchlist and the countdown show up.
    ============================================================ */
-/* Jméno v hlavičce.
+/* The name in the header.
 
-   Do načtení sestavy tam stojí ID týmu (#60480) — jediné, co v tu chvíli
-   víme. Jakmile dorazí entry/{id}/, přepíšeme ho na název týmu a iniciály
-   manažera: „Prague Patriots (KB)“. Číslo nikomu nic neříká, název ano.
+   Until the squad loads it is the team ID (#60480) — the only thing we
+   know at that point. As soon as entry/{id}/ arrives it becomes the team
+   name plus the manager's initials: "Prague Patriots (KB)".
 
-   Na úzké hlavičce se text ořízne přes text-overflow; iniciály jsou proto
-   ve vlastním prvku, který se nezmenšuje — když se nevejde všechno,
-   zmizí nejdřív konec názvu, ne to, čí je tým. */
+   In a narrow header the text is clipped with text-overflow; the initials
+   therefore live in their own element that does not shrink — when things
+   do not fit, the end of the name goes first, not whose team it is. */
 function initials(entry){
   return [entry.player_first_name, entry.player_last_name]
     .map(x => (x || '').trim()[0] || '')
@@ -830,10 +924,10 @@ function setWhoName(entry){
 
 let HOME = null;
 
-/* Formát zbývajícího času do deadlinu. Vteřiny nikoho nezajímají,
-   ale rozdíl mezi „za 2 dny“ a „za 4 hodiny“ je celé sdělení. */
+/* Formats the time left until the deadline. Nobody cares about seconds,
+   but the difference between "in 2 days" and "in 4 hours" is the message. */
 function untilText(ms){
-  if(ms <= 0) return 'deadline prošel';
+  if(ms <= 0) return 'deadline passed';
   const h = Math.floor(ms / 3600000);
   const d = Math.floor(h / 24);
   if(d >= 1) return `za ${d} d ${h % 24} h`;
@@ -854,28 +948,28 @@ function homeMetrics(){
   card('Body' + (cur ? ' GW' + cur.id : ''), pts === null ? '—' : pts);
 
   if(entry && entry.summary_overall_rank)
-    card('Celkové pořadí', entry.summary_overall_rank.toLocaleString('cs-CZ'));
+    card('Overall rank', entry.summary_overall_rank.toLocaleString('en-GB'));
   else card('Body celkem', entry ? entry.summary_overall_points : '—');
 
   if(entry && Number.isFinite(entry.last_deadline_value))
-    card('Hodnota týmu', (entry.last_deadline_value / 10).toFixed(1),
+    card('Team value', (entry.last_deadline_value / 10).toFixed(1),
       'v bance ' + ((entry.last_deadline_bank || 0) / 10).toFixed(1) + 'm');
 
-  /* Volné přestupy umíme jen tehdy, když už proběhl dopočet v jiné
-     záložce. Odhadovat je tady znovu by znamenalo další dotaz na
-     historii přestupů — a špatné číslo je horší než žádné. */
+  /* Free transfers are only known once another tab has worked them out.
+     Estimating them again here would mean another request for transfer
+     history — and a wrong number is worse than none. */
   const ft = ftOverride();
-  if(ft !== null) card('Volné přestupy', ft, 'ručně nastaveno');
+  if(ft !== null) card('Free transfers', ft, 'set manually');
   else if(picks && picks.entry_history)
-    card('Přestupy v kole', picks.entry_history.event_transfers,
+    card('Transfers this gameweek', picks.entry_history.event_transfers,
       picks.entry_history.event_transfers_cost
-        ? '−' + picks.entry_history.event_transfers_cost + ' b' : 'bez pokuty');
+        ? '−' + picks.entry_history.event_transfers_cost + ' b' : 'noAward pokuty');
 
   return `<div class="hcards">${cards.join('')}</div>`;
 }
 
-/* Hráči, kteří potřebují zásah — seřazení podle naléhavosti.
-   Blank je taky problém, i když hráč je zdravý. */
+/* Players who need attention — sorted by urgency.
+   A blank is a problem too, even if the player is fit. */
 function homeAttention(){
   const {picks, startGw} = HOME;
   if(!picks) return '';
@@ -894,11 +988,11 @@ function homeAttention(){
     if(p.status === 'i' || p.status === 's' || p.status === 'u'
        || p.status === 'n' || chance === 0){
       items.push({rank: 0, cls: 'al', p, tm,
-        txt: (p.status === 's' ? 'suspendovaný' : p.status === 'i' ? 'zraněný'
-              : 'nedostupný') + (news ? ' · ' + news.toLowerCase() : '')});
+        txt: (p.status === 's' ? 'suspended' : p.status === 'i' ? 'injured'
+              : 'unavailable') + (news ? ' · ' + news.toLowerCase() : '')});
     } else if(chance !== null && chance < 100){
       items.push({rank: 1, cls: 'wn', p, tm,
-        txt: chance + ' % · pod otazníkem' + (news ? ' · ' + news.toLowerCase() : '')});
+        txt: chance + ' % · doubtful' + (news ? ' · ' + news.toLowerCase() : '')});
     } else if(gwFixtures(p.team, startGw).length === 0){
       items.push({rank: 2, cls: 'mute', p, tm, txt: 'v GW' + startGw + ' nehraje (blank)'});
     }
@@ -907,12 +1001,12 @@ function homeAttention(){
   items.sort((a, b) => a.rank - b.rank);
 
   if(!items.length) return `<div class="hbox">
-    <h3><i class="hi ok">✓</i>Vyžaduje pozornost</h3>
-    <p class="note">Nic. Celý kádr je zdravý a všichni v GW${startGw} hrají.</p>
+    <h3><i class="hi ok">✓</i>Needs attention</h3>
+    <p class="note">Nothing. The whole squad is fit and everyone plays in GW${startGw}.</p>
   </div>`;
 
   return `<div class="hbox">
-    <h3><i class="hi al">!</i>Vyžaduje pozornost<span class="cnt">${items.length}</span></h3>
+    <h3><i class="hi al">!</i>Needs attention<span class="cnt">${items.length}</span></h3>
     ${items.map(x => `<div class="hrow">
       <em>${esc(x.tm)}</em>
       <b>${esc(x.p.web_name)}</b>
@@ -921,8 +1015,8 @@ function homeAttention(){
   </div>`;
 }
 
-/* Cenové pohyby omezené na hráče, kterých se mě týkají: můj kádr
-   vlevo, watchlist vpravo. Zbytek ligy patří do záložky Ceny. */
+/* Price moves limited to players that concern me: my squad theirs_ the left,
+   the watchlist theirs_ the right. The rest of the league belongs in Prices. */
 function homePrices(){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   const projFor = (p, o) =>
@@ -950,26 +1044,26 @@ function homePrices(){
   const watch = watchRows().slice(0, 5);
 
   const mineBox = `<div class="hbox">
-    <h3><i class="hi">£</i>Ceny — můj kádr</h3>
+    <h3><i class="hi">£</i>Prices — my squad</h3>
     ${mineRows.length ? mineRows.map(line).join('')
-      : '<p class="note">Nikomu z tvých hráčů se ukazatel výrazně nehýbe.</p>'}
+      : '<p class="note">None of your players has a meaningful move.</p>'}
   </div>`;
 
   const watchBox = `<div class="hbox">
     <h3><i class="hi">★</i>Watchlist<button type="button" class="lnkbtn"
       data-goto="t-prices">Spravovat</button></h3>
     ${watch.length ? watch.map(line).join('')
-      : `<p class="note">Zatím nikoho nesleduješ. V záložce Ceny klikni na
-         hvězdičku u hráče, kterého chceš hlídat.</p>`}
+      : `<p class="note">You are not watching anyone yet. In the Prices tab click the
+         star next to a player you want to follow.</p>`}
     ${watch.length ? '' : storageNote('Watchlist')}
   </div>`;
 
   return `<div class="hgrid">${mineBox}${watchBox}</div>`;
 }
 
-/* Nejvyšší projekce FPL v kádru. Není to doporučení kapitána —
-   appka ho vědomě nedává, protože `ep_next` chodí zaokrouhlené
-   a mezi špičkovými hráči nerozliší. Je to jen orientace. */
+/* The highest FPL projection in the squad. This is not a captain pick —
+   the app deliberately does not give one, because `ep_next` arrives
+   rounded and cannot separate top players. It is just a pointer. */
 function homeOutlook(){
   const {picks, startGw} = HOME;
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
@@ -986,9 +1080,9 @@ function homeOutlook(){
       .slice(0, 3);
 
     epBox = `<div class="hbox">
-      <h3><i class="hi">↗</i>Nejvyšší projekce na GW${startGw}${info(`Číslo je
-        oficiální <code>ep_next</code> od FPL, ne můj odhad. U double kol
-        počítá jen s jedním zápasem.`)}</h3>
+      <h3><i class="hi">↗</i>Highest projection for GW${startGw}${info(`The number is
+        FPL's official <code>ep_next</code>, not my estimate. For double gameweeks
+        it counts one match only.`)}</h3>
       ${best.length ? best.map(x => {
         const fx = gwFixtures(x.p.team, startGw);
         const opp = fx.map(f => (teams[f.opp] ? teams[f.opp].short_name : '?')
@@ -999,11 +1093,11 @@ function homeOutlook(){
           <span class="mute">${esc(opp)}</span>
           <span class="pc">${x.ep.toFixed(1)}</span>
         </div>`;
-      }).join('') : '<p class="note">FPL zatím projekce neposílá.</p>'}
+      }).join('') : '<p class="note">FPL is not sending projections yet.</p>'}
     </div>`;
   }
 
-  // Blanky a doubly kádru v nejbližších čtyřech kolech.
+  // Squad blanks and doubles in the next four gameweeks.
   const shape = gwShape(startGw, 4).map(x => {
     const b = MY_SQUAD ? x.blanks.filter(t =>
       BOOT.elements.some(p => MY_SQUAD.has(p.id) && p.team === t.id)) : [];
@@ -1018,45 +1112,45 @@ function homeOutlook(){
   }).filter(Boolean);
 
   const shapeBox = `<div class="hbox">
-    <h3><i class="hi">▦</i>Rozpis na čtyři kola</h3>
+    <h3><i class="hi">▦</i>Next four gameweeks</h3>
     ${shape.length ? shape.join('')
-      : '<p class="note">Žádný blank ani double se tvého kádru v nejbližších čtyřech kolech netýká.</p>'}
+      : '<p class="note">No blank or double affects your squad in the next four gameweeks.</p>'}
   </div>`;
 
   return `<div class="hgrid">${epBox || shapeBox}${epBox ? shapeBox : ''}</div>`;
 }
 
 /* ============================================================
-   KÁDR: PO POZICÍCH / CELKEM
+   SQUAD: BY POSITION / WHOLE SQUAD
 
-   Sestava se dá číst dvěma způsoby a každý odpovídá na jinou otázku.
-   Po pozicích: „kolik mám zabité v obraně“. Celkem: „kdo z mých
-   patnácti má nejhorší los“ — a na to skupiny překážejí.
+   The squad can be read two ways and each answers a different question.
+   By position: "how much is tied up in defence". Whole squad: "which of
+   my fifteen has the worst fixtures" — and groups get in the way of that.
 
-   Přepínač nic nepřekresluje. Patnáct řádků je v DOM jednou a obě
-   zobrazení s nimi jen jinak zacházejí: skupinové hlavičky se v
-   režimu Celkem schovají CSS pravidlem a řádky se přeskládají podle
-   data-atributů. Kdyby se místo toho vykresloval druhý seznam,
-   existovala by data dvakrát — a stačilo by opravit jedno místo ze
-   dvou, aby si tabulka začala odporovat sama se sebou.
+   The switch redraws nothing. The fifteen rows are in the DOM once and
+   both views just treat them differently: group headers are hidden by a
+   CSS rule in Whole squad mode and the rows are reordered by their data
+   attributes. Rendering a second list instead would mean the data existed
+   twice — and fixing one of the two places would be enough for the table
+   to start contradicting itself.
 
-   Volba se drží v proměnné, ne v localStorage: je to způsob čtení
-   jedné obrazovky, ne nastavení appky. Po reloadu je zpátky výchozí
-   rozdělení po pozicích, které je pro většinu pohledů užitečnější.
+   The choice lives in a variable, not localStorage: it is a way of reading
+   one screen, not an app setting. After a reload the default split by
+   position is back, which is more useful for most visits.
    ============================================================ */
 let SQUAD_VIEW = 'pos';        // 'pos' | 'all'
-let SQUAD_SORT = null;         // {key, dir} — null = pořadí v sestavě
+let SQUAD_SORT = null;         // {key, dir} — null = order as picked
 
-/* Sloupce, u kterých „lepší“ znamená menší číslo. FDR je jediný:
-   nejlehčí los je 1, ne 5. Ostatní se řadí od největšího. */
+/* Columns where "better" means a smaller number. FDR is the only one:
+   the easiest fixture is 1, not 5. Everything else sorts descending. */
 const SORT_ASC_FIRST = new Set(['fdr']);
 
-/* Rozřezání seznamu na skupiny: hlavička a řádky, které pod ni patří.
+/* Cuts the list into groups: a header and the rows that belong under it.
 
-   Čte se z původního pořadí, ne z aktuálního stavu DOM — jinak by se
-   po prvním přeskládání rozpadlo, které řádky ke které skupině patří.
-   Původní pořadí si seznam zapamatuje při prvním doteku; překreslení
-   sestavy vyrobí nový element, takže se paměť sama zahodí. */
+   Read from the original order rather than the current DOM state —
+   otherwise the first reorder would destroy the knowledge of which rows
+   belong to which group. The list remembers its original order theirs_ first
+   touch; a squad redraw creates a new element, so the memory is dropped. */
 function squadGroups(list){
   if(!list._order) list._order = [...list.children];
 
@@ -1078,10 +1172,10 @@ function squadSorter(){
   const num = (el, k) => parseFloat(el.dataset[k]);
 
   return (a, b) => {
-    // Bez aktivního řazení platí pořadí ze sestavy.
+    // With no active sort the picked order applies.
     if(!key) return num(a, 'poradi') - num(b, 'poradi');
     const va = num(a, key), vb = num(b, key);
-    // -1 je „hodnota není“ (blank, nehrál). Patří na konec při obou směrech.
+    // -1 means "no value" (blank, did not play). It belongs last either way.
     if(va < 0 !== vb < 0) return va < 0 ? 1 : -1;
     return (va - vb) * dir || (num(a, 'poradi') - num(b, 'poradi'));
   };
@@ -1094,8 +1188,8 @@ function applySquadSort(){
   list.classList.toggle('flat', SQUAD_VIEW === 'all');
 
   list.querySelectorAll('[data-sort]').forEach(h => {
-    const on = SQUAD_SORT && SQUAD_SORT.key === h.dataset.sort;
-    h.setAttribute('aria-sort', on
+    const theirs_ = SQUAD_SORT && SQUAD_SORT.key === h.dataset.sort;
+    h.setAttribute('aria-sort', theirs_
       ? (SQUAD_SORT.dir === 1 ? 'ascending' : 'descending') : 'none');
   });
 
@@ -1104,19 +1198,19 @@ function applySquadSort(){
   const cmp = squadSorter();
 
   if(SQUAD_VIEW === 'all'){
-    /* Jeden seznam: skupiny padají a řadí se všech patnáct dohromady.
-       Hlavičky jdou na konec — jsou schované, ale musí být z cesty,
-       jinak by mezi řádky zůstala prázdná místa po nich. */
+    /* One list: groups fall away and all fifteen sort together.
+       Headers go to the end — they are hidden, but must be out of the way,
+       or empty gaps would be left between the rows. */
     const rows = skupiny.flatMap(g => g.rows).sort(cmp);
     skupiny.forEach(g => { if(g.head) list.appendChild(g.head); });
     rows.forEach(r => list.appendChild(r));
     return;
   }
 
-  /* Po pozicích: každá skupina se seřadí sama v sobě a vrátí se pod
-     svou hlavičku. Tohle byla ta chyba — řádky se připojovaly na konec
-     seznamu, takže skončily všechny pod poslední hlavičkou (Lavička)
-     a skupiny nad nimi zůstaly prázdné. */
+  /* By position: each group sorts within itself and returns under its own
+     header. This was the bug — rows were appended to the end of the list,
+     so they all ended up under the last header (Bench) and the groups
+     above stayed empty. */
   skupiny.forEach(g => {
     if(g.head) list.appendChild(g.head);
     g.rows.slice().sort(cmp).forEach(r => list.appendChild(r));
@@ -1143,7 +1237,7 @@ document.addEventListener('click', ev => {
   }
 });
 
-// Klávesnice: hlavička je tlačítko, tak se musí chovat jako tlačítko.
+// Keyboard: the header is a button, so it has to behave like one.
 document.addEventListener('keydown', ev => {
   if(ev.key !== 'Enter' && ev.key !== ' ') return;
   const th = ev.target.closest && ev.target.closest('.squadlist [data-sort]');
@@ -1151,22 +1245,22 @@ document.addEventListener('keydown', ev => {
 });
 
 /* ============================================================
-   CENY POSLEDNÍHO KOLA NA PŘEHLEDU
+   LAST GAMEWEEK AWARDS ON HOME
 
-   Ceny počítá buildAwards() v js/tabs.js a dosud žily jen v Hubu.
-   Na Přehled patří proto, že jsou to jediná čísla o lize, která se
-   čtou zpětně — kdo vyhrál kolo se člověk chce dozvědět, ne si to
-   jít vyhledat.
+   Awards are computed by buildAwards() in js/tabs.js and used to live only
+   in the League hub. They belong theirs_ Home because they are the one set of
+   league numbers read in hindsight — people want to be told who won the
+   gameweek, not to go looking for it.
 
-   Data pro ně stojí desítky dotazů (pořadí + historie + sestavy
-   všech členů), takže se nestahují při startu appky. Hub si je
-   načte sám, když se otevře; když se neotevřel, spustí to Přehled
-   na pozadí a po dojetí se překreslí. Do té doby je na místě panelu
-   kostra, ne prázdno — panel tak nemění výšku a nic nepodskočí.
+   The data behind them costs dozens of requests (standings + history +
+   every member's picks), so it is not fetched at startup. The hub loads it
+   itself when opened; if it has not been opened, Home starts it in the
+   background and redraws when it finishes. Until then there is a skeleton
+   in place of the panel, not emptiness — so the panel keeps its height.
 
-   HUB_FOR_HOME hlídá, že se to spustí jednou. Bez toho by každé
-   překreslení Přehledu (a to dělá i změna watchlistu) pustilo další
-   várku dotazů.
+   HUB_FOR_HOME makes sure this runs once. Without it every Home redraw
+   (and a watchlist change causes one) would fire another batch of requests.
+   batch of requests.
    ============================================================ */
 let HUB_FOR_HOME = false;
 
@@ -1176,32 +1270,31 @@ function homeAwardsLoad(){
   if(!lid) return;
   HUB_FOR_HOME = true;
 
-  /* Hub si tímhle odbyl i své vlastní načtení — kdyby se otevřel
-     potom, TAB_INIT by pustil loadHub podruhé. */
+  /* The hub has just done its own load too — if it were opened afterwards,
+     TAB_INIT would run loadHub a second time. */
   TAB_DONE.add('t-hub');
 
   Promise.resolve()
     .then(() => loadHub())
-    // Kapitánské ceny potřebují navíc body hráčů kola. renderHub()
-    // si je tahá sám na pozadí, ale my nevíme kdy — tak si počkáme.
-    .then(() => HUB && nactiKolo(HUB.cur.id))
+    // Captain awards also need live player points. renderHub() fetches
+    // them in the background, but we do not know when — so we wait.
+    .then(() => HUB && loadGwData(HUB.cur.id))
     .then(() => drawHome())
     .catch(() => { HUB_FOR_HOME = false; });
 }
 
 function homeAwards(){
-  // Ceny stojí na kódu z js/tabs.js. Ten se načítá až po core.js,
-  // takže se na jeho funkce smí sahat jen za běhu, ne při definici.
+  // Awards rely theirs_ code from js/tabs.js, which loads after core.js, so its
+  // functions may only be touched at runtime, not at definition time.
   const box = inner => `<div class="hbox hawards">
-    <h3><i class="hi">🏆</i>Ceny posledního kola${
+    <h3><i class="hi">🏆</i>Last gameweek awards${
       typeof HUB !== 'undefined' && HUB ? ` · GW${HUB.cur.id}` : ''
-      }<button type="button" class="lnkbtn" data-goto="t-hub">Hub ligy</button></h3>
+      }<button type="button" class="lnkbtn" data-goto="t-hub">League hub</button></h3>
     ${inner}</div>`;
 
   const lid = CONFIG.leagueId || localStorage.getItem(LEAGUE_KEY);
   if(!lid){
-    return box(`<p class="note">Ceny se počítají z výsledků miniligy — zadej
-      si její ID v záložce Miniliga.</p>`);
+    return box(`<p class="note">Awards are computed from mini-league results.</p>`);
   }
 
   if(typeof HUB === 'undefined' || !HUB){
@@ -1212,23 +1305,25 @@ function homeAwards(){
   const awards = buildAwards(HUB.cur.id, NEWS_PICKS.get(HUB.cur.id),
                              NEWS_LIVE.get(HUB.cur.id));
   if(!awards.length){
-    return box('<p class="note">Za poslední kolo zatím nejsou data.</p>');
+    return box('<p class="note">There is no data for the last gameweek yet.</p>');
   }
 
-  /* Dokud kolo neprojde dopočtem bonusů, jsou ceny průběžné. Stejný
-     štítek jako v Hubu — jinak by Přehled tvrdil něco jiného. */
-  const phase = gwPhase(HUB.cur.id);
-  const zive = phase !== 'final'
-    ? `<span class="livetag">${phase === 'running' ? 'živě' : 'čeká na bonusy'}</span>`
+  /* Until the gameweek has been through bonus calculation the awards are
+     provisional. Same label as in the hub — otherwise Home would claim
+     something different. */
+  const liveTag = phase !== 'final'
+    ? `<span class="livetag">${phase === 'running' ? 'live' : 'awaiting bonus'}</span>`
     : '';
 
-  return box(`${zive}<div class="awards mini">${awards.map(a => {
+  return box(`${liveTag}<div class="awards mini">${awards.map(a => {
     const meta = AWARD_META[a.key];
-    const bez = a.val === '—' ? ' bezceny' : '';
-    return `<div class="award ${meta.cls}${bez}">
-      <div class="emoji" aria-hidden="true">${meta.emoji}</div>
-      <div class="title">${meta.title}</div>
-      <div class="who">${a.who}</div>
+    const noAward = a.val === '—' ? ' bezceny' : '';
+    return `<div class="award ${meta.cls}${noAward}">
+      <div class="medal" aria-hidden="true">${meta.emoji}</div>
+      <div class="txt">
+        <div class="title">${meta.title}</div>
+        <div class="who">${a.who}</div>
+      </div>
       <div class="val">${a.val}</div>
     </div>`;
   }).join('')}</div>`);
@@ -1243,97 +1338,83 @@ function drawHome(){
     return;
   }
 
-  const nxt = BOOT.events.find(e => e.is_next);
-  const dl = nxt ? new Date(nxt.deadline_time) : null;
-
+  /* No panel header. Navigation says I am theirs_ Home, and the deadline sits
+     in the bar above the content — saying it twice only pushed numbers down. */
   out.innerHTML = `
-    <div class="hhead">
-      <div>
-        <h2>Přehled</h2>
-        <p class="note">Co potřebuješ vědět, než otevřeš sestavu.</p>
-      </div>
-      ${dl ? `<span class="hdl">GW${nxt.id} · deadline ${
-        untilText(dl - new Date())}</span>` : ''}
-    </div>
     ${homeMetrics()}
     ${homeAttention()}
     ${homePrices()}
     ${homeOutlook()}
-    ${typeof homeH2H === 'function'
-      ? `<div class="hgrid">${homeH2H()}${homeAwards()}</div>` : homeAwards()}
+    <div class="hgrid one">${homeAwards()}</div>
     ${typeof homeNews === 'function' ? `<div class="hgrid one">${homeNews()}</div>` : ''}`;
 }
 
-/* Odkazy „Spravovat“ a spol. přepínají záložky. Delegovaně, protože
-   se přehled překresluje při každé změně watchlistu. */
+/* "Manage" links and friends switch tabs. Delegated, because Home is
+   redrawn theirs_ every watchlist change. */
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('button[data-goto]');
   if(btn) selectTab(btn.dataset.goto);
 });
 
-/* ============ ZALOZKY ============ */
+/* ============ TABS ============ */
 const TABS = [['t-home','p-home'], ['t-squad','p-squad'],
-              ['t-league','p-league'], ['t-hub','p-hub'], ['t-h2h','p-h2h'], ['t-news','p-news'],
+              ['t-league','p-league'], ['t-hub','p-hub'], ['t-news','p-news'],
               ['t-inj','p-inj'], ['t-players','p-players'], ['t-plan','p-plan'],
-              ['t-prices','p-prices'], ['t-adv','p-adv']];
-/* Plánovač byl ['t-planner','p-planner']. Vyřazením z TABS přestal
-   existovat pro navigaci, přepínání i mobilní plachtu — a to je celé
-   vypnutí. Panel i js/planner.js zůstávají na místě, takže návrat je
-   jeden řádek tady a jeden v index.html. */
+              ['t-prices','p-prices']];
 
-// Co se má spustit při prvním otevření záložky (lazy načítání).
-/* Co se má stát při prvním otevření záložky.
 
-   Ligové záložky se dřív načítaly až po kliknutí na tlačítko, protože
-   stojí desítky dotazů. Jenže to tlačítko bylo jediné, co na panelu bylo —
-   nikdo ho nemohl minout a nikdo si ho nevybral dobrovolně.
 
-   Načítáme proto při otevření záložky, ne při startu appky: kdo se na ligu
-   nepodívá, nic nestáhne, a kdo ano, nemusí klikat. Druhá ligová záložka
-   je pak skoro zadarmo — per-member dotazy jdou přes cached() a jsou to
-   přesně tytéž adresy.
 
-   Tlačítka zůstala jako „Aktualizovat“; po deadlinu se hodí. */
+
+// What runs the first time a tab is opened (lazy loading).
+/* What happens the first time a tab is opened.
+
+   League tabs used to load only after a button click, because they cost
+   dozens of requests. But that button was the only thing theirs_ the panel —
+   nobody could miss it and nobody chose it voluntarily.
+
+   So we load theirs_ tab open, not at app start: whoever does not look at the
+   league downloads nothing, and whoever does need not click. The second
+   league tab is then almost free — per-member requests go through cached()
+   and are exactly the same URLs.
+
+   The buttons stayed as "Refresh"; after the deadline they come in handy. */
 const TAB_INIT = {
   't-league':  () => autoLoadLeague(),
   't-hub':     () => loadHub(),
-  't-h2h':     () => loadH2H(),
   't-news':    () => loadNews(),
   't-inj':     () => loadInjuries(),
   't-plan':    () => loadPlan(),
   't-prices':  () => loadPrices(),
-  't-adv':     () => loadAdvisor(),
 };
 
-/* Miniliga potřebuje ID, které TAB_INIT nezná. Když chybí, nemá smysl
-   spouštět nic — jen to řekneme. */
+/* The mini-league needs an ID that TAB_INIT does not know. When it is
+   missing there is nothing to run — we just say so. */
 function autoLoadLeague(){
   const lid = CONFIG.leagueId || localStorage.getItem(LEAGUE_KEY);
-  if(!lid){ $('lmsg').textContent = 'Nemáš zadané ID miniligy.'; return; }
+  if(!lid){ $('lmsg').textContent = 'No mini-league ID set.'; return; }
   return loadLeague(lid);
 }
 const TAB_DONE = new Set();
 
 function selectTab(tid){
   TABS.forEach(([t, p]) => {
-    const on = t === tid;
-    $(t).setAttribute('aria-selected', on);
-    $(t).tabIndex = on ? 0 : -1;
-    $(p).hidden = !on;
+    const theirs_ = t === tid;
+    $(t).setAttribute('aria-selected', theirs_);
+    $(t).tabIndex = theirs_ ? 0 : -1;
+    $(p).hidden = !theirs_;
   });
   $(tid).focus();
 
-  /* Panely mají tabindex="-1", takže se dá fokus přesunout na obsah.
-     Bez tohohle zůstala klávesnice na tlačítku a odečítač se o změně
-     obsahu nedozvěděl. */
+  /* Panels have tabindex="-1" so focus can move to the content. Without
+     this the keyboard stayed theirs_ the button and a screen reader never
+     learned that the content had changed. */
   const pid = (TABS.find(([t]) => t === tid) || [])[1];
   if(pid && $(pid)) $(pid).setAttribute('aria-busy', 'false');
 
-  // Adresní řádek drží krok s tím, co je vidět — odkaz na kolo se pak
-  // dá poslat dál. Kolo doplňuje záložka H2H sama, když ho přepne.
-  if(typeof setHash === 'function'){
-    setHash(tid, tid === 't-h2h' && typeof H2H_GW !== 'undefined' ? H2H_GW : null);
-  }
+  // The address bar keeps up with what is visible, so a link can be shared.
+
+  if(typeof setHash === 'function') setHash(tid, null);
 
   if(TAB_INIT[tid] && !TAB_DONE.has(tid)){ TAB_DONE.add(tid); TAB_INIT[tid](); }
 }
@@ -1342,7 +1423,7 @@ TABS.forEach(([tid]) => {
   $(tid).tabIndex = tid === 't-home' ? 0 : -1;
   $(tid).addEventListener('click', () => selectTab(tid));
 
-  // role="tablist" slibuje ovládání šipkami. Dřív ho slibovala a neplnila.
+  // role="tablist" promises arrow-key control. It used to promise and not deliver.
   $(tid).addEventListener('keydown', ev => {
     const usable = TABS.filter(([t]) => !$(t).disabled).map(([t]) => t);
     const i = usable.indexOf(tid);
@@ -1357,17 +1438,17 @@ TABS.forEach(([tid]) => {
 });
 
 /* ============================================================
-   TVRDÉ OBNOVENÍ
+   HARD REFRESH
 
-   Appka drží stažené odpovědi v API_CACHE po celou dobu života
-   stránky. To je záměr — přepínání záložek je pak zadarmo. Cena je,
-   že když se něco nestáhne (FPL vrátí 403, spadne wifi uprostřed
-   dotazu), zůstane ta chyba viset až do ručního reloadu prohlížeče.
+   The app keeps downloaded responses in API_CACHE for the lifetime of the
+   page. That is deliberate — switching tabs is then free. The price is
+   that when something fails to download (FPL returns 403, wifi drops
+   mid-request), the error hangs around until a manual browser reload.
 
-   Tlačítko dělá to, co by člověk čekal od F5, ale bez ztráty stavu:
-   vyhodí cache, zapomene, které záložky už běžely, a načte znovu
-   sestavu i právě otevřenou záložku. Bootstrap a rozpis se zahazují
-   taky, protože právě v nich bývá zdroj zaseknutí.
+   The button does what people expect from F5, but without losing state:
+   it throws the cache away, forgets which tabs have run, and reloads both
+   the squad and the currently open tab. Bootstrap and fixtures are dropped
+   too, because that is usually where things get stuck.
    ============================================================ */
 let RELOADING = false;
 
@@ -1379,7 +1460,7 @@ async function hardReload(){
   if(btn){ btn.disabled = true; btn.classList.add('spin'); }
 
   try{
-    // Kompletní vyprázdnění. BOOT a FIX se stahují znovu v load().
+    // A complete flush. BOOT and FIX are downloaded again in load().
     API_CACHE = new Map();
     BOOT = null;
     FIX = null;
@@ -1391,10 +1472,9 @@ async function hardReload(){
   HALL_ALL = false;
     LEAGUE_OWN = null;
     TR_STATE = null;
-    PLANNER = null;
 
-    // Otevřenou záložku si zapamatujeme, ať člověk neskončí jinde,
-    // než byl. Ostatní se načtou samy, až na ně přijde řada.
+    // Remember the open tab so nobody ends up somewhere else. The others
+    // load themselves when their turn comes.
     const open = (TABS.find(([t]) => $(t).getAttribute('aria-selected') === 'true')
                   || ['t-home'])[0];
     TAB_DONE.clear();
@@ -1413,9 +1493,9 @@ async function hardReload(){
 
 if($('reload')) $('reload').addEventListener('click', hardReload);
 
-/* ============ ODPOČET DO DEADLINU ============
-   Nejlevnější užitečná věc v celé appce: nejčastější chyba v FPL není
-   špatný transfer, ale zapomenutý deadline. */
+/* ============ DEADLINE COUNTDOWN ============
+   The cheapest useful thing in the whole app: the most common FPL mistake
+   is not a bad transfer, it is a forgotten deadline. */
 let CD_TIMER = null;
 
 function stopCountdown(){
@@ -1433,17 +1513,17 @@ function startCountdown(){
 
   const deadline = new Date(nxt.deadline_time).getTime();
 
-  /* Dva řádky: co, a za jak dlouho. Jedna dlouhá řádka drobným
-     monospacem se v hlavičce nedala přečíst.
+  /* Two lines: what, and how long. One long line in small monospace was
+     unreadable in the header.
 
-     Jednotky taky zkracujeme podle toho, kolik zbývá — pět dní se měří
-     na dny a hodiny, poslední hodina na minuty. Ukazovat „5 d 4 h 54 min“
-     je přesnost, kterou nikdo nevyužije. */
+     The units also shorten with what is left — five days are measured in
+     days and hours, the last hour in minutes. Showing "5 d 4 h 54 min" is
+     precision nobody uses. */
   const tick = () => {
     const left = deadline - Date.now();
     if(left <= 0){
       el.innerHTML = `<span class="lbl">GW${nxt.id}</span>
-        <span class="val">Deadline prošel</span>`;
+        <span class="val">Deadline passed</span>`;
       el.className = 'cd live';
       clearInterval(CD_TIMER);
       return;
@@ -1458,7 +1538,7 @@ function startCountdown(){
 
     el.innerHTML = `<span class="lbl">Deadline GW${nxt.id}</span>
       <span class="val">za ${val}</span>`;
-    // pod šest hodin je to varování, ne informace
+    // under six hours it is a warning, not information
     el.className = 'cd' + (left < 3600000 ? ' late' : left < 6 * 3600000 ? ' soon' : '');
   };
 
@@ -1473,7 +1553,7 @@ const COLORS = ['#3FBF7F','#F2A93B','#E8453C','#5B8DEF','#C77DFF',
                 '#2DD4BF','#F472B6','#A3E635','#FB923C','#94A3B8'];
 
 async function loadLeague(lid){
-  $('lmsg').textContent = 'Načítám ligu…';
+  $('lmsg').textContent = 'Loading league…';
   $('lout').innerHTML = '';
   try{
     if(!BOOT){ [BOOT, FIX] = await Promise.all([api('bootstrap-static/'), api('fixtures/')]); }
@@ -1481,26 +1561,33 @@ async function loadLeague(lid){
     const cur = BOOT.events.find(e => e.is_current);
 
     const {league, members, truncated} = await fetchStandings(lid,
-      n => { $('lmsg').textContent = 'Načítám pořadí… ' + n + ' týmů'; });
+      n => { $('lmsg').textContent = 'Loading standings… ' + n + ' teams'; });
 
     if(!members.length){
-      $('lmsg').textContent = 'Liga nemá žádné členy, nebo ještě nezačala sezóna.';
+      $('lmsg').textContent = 'The league has no members, or the season has not started.';
       return;
     }
 
-    // Historie i sestavy jdou frontou, ne najednou. Padesát týmů = sto dotazů;
-    // poslané naráz je FPL odmítne a graf pak tiše přijde o půlku čar.
+    // History and picks go through a queue, not all at once. Fifty teams =
+    // a hundred requests; sent together FPL refuses them and the chart
     const prog = label => (done, total) => {
       $('lmsg').textContent = `${label} ${done}/${total}`;
     };
 
-    const hist = await pooled(members, m => cached('entry/' + m.entry + '/history/'),
-      5, prog('Načítám historii…'));
+    // The same saving as in the hub: the archive of finished gameweeks
+    // replaces a request per member. When it is not enough, we go to the API.
+    let hist = null;
+    if(cur){ try{ hist = await snapHists(members, cur.id); }catch(e){} }
+
+    if(!hist){
+      hist = await pooled(members, m => cached('entry/' + m.entry + '/history/'),
+        5, prog('Loading history…'));
+    }
 
     let picks = [];
     if(cur){
       picks = await pooled(members, m => cached('entry/' + m.entry + '/event/' + cur.id + '/picks/'),
-        5, prog('Načítám sestavy…'));
+        5, prog('Loading squads…'));
     }
 
     renderLeague({league}, members, hist, picks, cur, truncated);
@@ -1510,22 +1597,22 @@ async function loadLeague(lid){
   }
 }
 
-/* Vývoj pořadí v lize.
+/* League rank over time.
 
-   Dvě věci, na kterých graf dřív ztroskotal u větších lig:
-   – body se braly přes current[g], tedy podle pozice v poli. Kdo vstoupil
-     do hry později, měl celou křivku posunutou. Teď se indexuje podle round.
-   – padesát čar v deseti barvách na výšku 300 px nedávalo přečíst nic.
-     Nad CHART_MAX kreslíme jen špičku tabulky plus tvoji čáru, zbytek
-     jen jako tichý šedý kontext. */
+   Two things this chart used to get wrong in bigger leagues:
+   – points were read as current[g], i.e. by position in the array. Anyone
+     who joined later had the whole curve shifted. Now it indexes by round.
+   – fifty lines in ten colours at 300 px tall was unreadable. Above
+     CHART_MAX we draw only the top of the table plus your own line; the
+     rest is quiet grey context. */
 const CHART_MAX = 12;
 
 function rankChart(members, hist){
   const maps = hist.map(pointsByRound);
   const gws = Math.max(0, ...maps.map(m => m.size ? Math.max(...m.keys()) : 0));
-  if(gws < 2) return '<p class="note">Graf se objeví po druhém odehraném kole.</p>';
+  if(gws < 2) return '<p class="note">The chart appears after the second finished gameweek.</p>';
 
-  // kumulativní body pro každé kolo; chybějící kolo drží poslední známý stav
+  // cumulative points per gameweek; a missing round holds the last known state
   const series = members.map((m, i) => {
     const pts = [];
     let sum = 0;
@@ -1546,7 +1633,7 @@ function rankChart(members, hist){
   const myId = ENTRY_ID || parseInt(localStorage.getItem('fpl_entry') || '0', 10);
   const n = members.length;
 
-  // Kdo dostane vlastní barvu a jméno v legendě.
+  // Who gets their own colour and a name in the legend.
   const highlighted = new Set();
   members.forEach((m, i) => { if(i < CHART_MAX) highlighted.add(i); });
   members.forEach((m, i) => { if(m.entry === myId) highlighted.add(i); });
@@ -1556,7 +1643,7 @@ function rankChart(members, hist){
   const x = g => PL + (gws === 1 ? 0 : (g * (W - PL - PR)) / (gws - 1));
   const y = r => PT + (n === 1 ? 0 : ((r - 1) * (H - PT - PB)) / (n - 1));
 
-  // Popisků na svislé ose je jen tolik, kolik se jich vejde čitelně.
+  // Only as many labels theirs_ the vertical axis as fit legibly.
   const step = Math.max(1, Math.ceil(n / 12));
 
   const grid = [];
@@ -1570,7 +1657,7 @@ function rankChart(members, hist){
 
   const color = i => COLORS[[...highlighted].indexOf(i) % COLORS.length];
 
-  // Nezvýrazněné čáry kreslíme první, ať je špička nahoře.
+  // Unhighlighted lines are drawn first, so the top of the table sits above.
   const draw = idx => {
     const s2 = series[idx];
     const d = ranks[idx].map((r, g) => (g ? 'L' : 'M') + x(g).toFixed(1) + ' ' + y(r).toFixed(1)).join(' ');
@@ -1590,21 +1677,21 @@ function rankChart(members, hist){
   const rest = n - highlighted.size;
 
   return `<div class="chart">
-      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Vývoj pořadí v lize po kolech">
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="League rank by gameweek">
         ${grid.join('')}${paths}
       </svg>
       <div class="legend">${legend}${
-        rest > 0 ? `<span><i style="background:var(--line)"></i>ostatní (${rest})</span>` : ''}</div>
+        rest > 0 ? `<span><i style="background:var(--line)"></i>others (${rest})</span>` : ''}</div>
     </div>
-    <p class="note">Svislá osa je pořadí v lize, vodorovná číslo kola. Tvoje čára je silnější.${
-      rest > 0 ? ' Zvýrazněná je jen špička tabulky a ty; zbytek ligy tvoří šedé pozadí.' : ''}</p>`;
+    <p class="note">The vertical axis is league rank, the horizontal one the gameweek. Your line is thicker.${
+      rest > 0 ? ' Only the top of the table and you are highlighted; the rest of the league is grey background.' : ''}</p>`;
 }
 
 function renderLeague(st, members, hist, picks, cur, truncated){
   const els = Object.fromEntries(BOOT.elements.map(p => [p.id, p]));
 
-  /* Snapshot pořadí. Ukládá se jen jednou za kolo a jen pro dohraná kola —
-     průběžné pořadí by za pár minut bylo zastaralé a zkreslilo by posun. */
+  /* Standings snapshot. Saved once per gameweek and only for finished
+     ones — live standings would be stale in minutes and skew the movement. */
   if(cur && cur.finished) saveSnap(cur.id, members);
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   const myId = ENTRY_ID || parseInt(localStorage.getItem('fpl_entry') || '0', 10);
@@ -1612,8 +1699,8 @@ function renderLeague(st, members, hist, picks, cur, truncated){
   /* --- tabulka poradi --- */
   const table = `<table>
     <thead><tr>
-      <th class="n">#</th><th>Manažer</th><th class="hide-s">Tým</th>
-      <th class="n">GW</th><th class="n">Celkem</th><th class="n hide-s">Změna</th>
+      <th class="n">#</th><th>Manager</th><th class="hide-s">Team</th>
+      <th class="n">GW</th><th class="n">Total</th><th class="n hide-s">Move</th>
     </tr></thead>
     <tbody>${members.map(m => {
       const move = m.last_rank ? m.last_rank - m.rank : 0;
@@ -1630,12 +1717,12 @@ function renderLeague(st, members, hist, picks, cur, truncated){
     }).join('')}</tbody></table>`;
 
   if(!cur || !picks.some(Boolean)){
-    $('lout').innerHTML = `<h2>${esc(CONFIG.leagueName || st.league.name)} · ${members.length} týmů</h2>${table}
-      <p class="note">Sestavy, rozdíly a graf se zobrazí, jakmile proběhne první kolo.</p>`;
+    $('lout').innerHTML = `<h2>${esc(CONFIG.leagueName || st.league.name)} · ${members.length} teams</h2>${table}
+      <p class="note">Squads, differences and the chart appear once the first gameweek is played.</p>`;
     return;
   }
 
-  /* --- kdo koho ma --- */
+  /* --- who_ koho ma --- */
   const owners = {};   // playerId -> [jmena manazeru]
   const caps = {};     // playerId -> [jmena]
   const byEntry = {};  // entryId -> Set(playerId)
@@ -1653,9 +1740,9 @@ function renderLeague(st, members, hist, picks, cur, truncated){
 
   const n = Object.keys(byEntry).length;
 
-  /* Vlastnictví v lize si uložíme i mimo tuhle funkci — potřebují ho
-     diferenciály v Transferech. Dřív tu podobná proměnná byla a zmizela
-     s panelem „Před deadlinem“; tahle drží jen to, co je opravdu potřeba. */
+  /* League ownership is stored outside this function as well — other
+     panels need it. It holds only what is really required.
+     */
   LEAGUE_OWN = {owners, n};
 
   const ranked = Object.entries(owners)
@@ -1665,9 +1752,9 @@ function renderLeague(st, members, hist, picks, cur, truncated){
                     parseFloat(b.p.selected_by_percent) - parseFloat(a.p.selected_by_percent));
 
   const ownTable = `<table>
-    <thead><tr><th>Hráč</th><th class="hide-s">Tým</th>
-      <th class="n">V lize</th><th style="width:90px">Podíl</th>
-      <th class="hide-s">Kdo</th><th class="n">Kapitán</th></tr></thead>
+    <thead><tr><th>Player</th><th class="hide-s">Team</th>
+      <th class="n">In league</th><th style="width:90px">Share</th>
+      <th class="hide-s">Who</th><th class="n">Captain</th></tr></thead>
     <tbody>${ranked.slice(0, 40).map(o => `<tr>
       <td><span class="who">${crest(o.p.team, 'sm')}<b>${esc(o.p.web_name)}</b></span></td>
       <td class="hide-s">${esc(teams[o.p.team].short_name)}</td>
@@ -1678,7 +1765,7 @@ function renderLeague(st, members, hist, picks, cur, truncated){
     </tr>`).join('')}</tbody></table>`;
 
   /* --- rozdily proti me --- */
-  let diffHtml = '<p class="note">Načti si nejdřív svoji sestavu v záložce Sestava, ať vím, s kým porovnávat.</p>';
+  let diffHtml = '<p class="note">Load your own squad in the Squad tab first, so I know what to compare against.</p>';
   const mine = byEntry[myId];
 
   if(mine){
@@ -1694,39 +1781,39 @@ function renderLeague(st, members, hist, picks, cur, truncated){
     const universal = ranked.filter(o => o.list.length === n).map(o => o.p.id);
 
     diffHtml = `
-      <h2>Máš jen ty · ${uniq.length}</h2>
+      <h2>Only you own · ${uniq.length}</h2>
       ${uniq.length ? `<div class="own">${uniq.map(pid => chip(pid, 'unique')).join('')}</div>
-        <p class="note">Tady získáváš nebo ztrácíš náskok. Nikdo jiný v lize je nemá.</p>`
-        : '<p class="note">Žádný hráč, kterého bys měl jen ty.</p>'}
+        <p class="note">This is where you gain or lose ground. Nobody else in the league has them.</p>`
+        : '<p class="note">No player that only you own.</p>'}
 
-      <h2>Nemáš, ale většina ligy ano · ${missing.length}</h2>
+      <h2>You are missing, most of the league owns · ${missing.length}</h2>
       ${missing.length ? `<div class="own">${missing.map(o => chip(o.p.id, 'miss')).join('')}</div>
-        <p class="note">Když tihle bodují, propadáš se v tabulce, aniž bys udělal chybu.</p>`
-        : '<p class="note">Nic ti neuniká — všechny populární hráče v lize máš.</p>'}
+        <p class="note">When these score, you slide down the table without making a mistake.</p>`
+        : '<p class="note">You are missing nothing — you own every popular player in the league.</p>'}
 
-      <h2>Má úplně každý · ${universal.length}</h2>
+      <h2>Everyone owns · ${universal.length}</h2>
       ${universal.length ? `<div class="own">${universal.map(pid => chip(pid, 'mine')).join('')}</div>
-        <p class="note">Na těchhle se pořadí nerozhodne, body dostanou všichni stejně.</p>`
-        : '<p class="note">Neexistuje hráč, kterého by měli všichni.</p>'}`;
+        <p class="note">These will not decide the table, everyone gets the same points.</p>`
+        : '<p class="note">There is no player owned by everyone.</p>'}`;
   }
 
   const SECTIONS = [
-    ['Pořadí', table],
-    ['Měsíc', `<div id="phasebox"><p class="note">Vyber měsíc…</p></div>`],
-    ['Živě', `<div id="livebox"><p class="note">Načítám průběžné body…</p></div>`],
-    ['Vývoj', rankChart(members, hist)],
-    ['Rozdíly', diffHtml],
-    ['Kdo koho má', ownTable],
+    ['Standings', table],
+    ['Month', `<div id="phasebox"><p class="note">Pick a month…</p></div>`],
+    ['Live', `<div id="livebox"><p class="note">Loading live points…</p></div>`],
+    ['Trend', rankChart(members, hist)],
+    ['Differences', diffHtml],
+    ['Who owns whom', ownTable],
     ['Historie', '<div id="histbox"></div>'],
   ];
 
   const cap = truncated
-    ? `<p class="note">Liga je větší než ${LEAGUE_CAP} členů — pracuju s prvními ${LEAGUE_CAP}
-       podle pořadí.</p>`
+    ? `<p class="note">The league is bigger than ${LEAGUE_CAP} members — working with the first ${LEAGUE_CAP}
+       by rank.</p>`
     : '';
 
   $('lout').innerHTML = `
-    <h2>${esc(CONFIG.leagueName || st.league.name)} · ${members.length} týmů · GW${cur.id}</h2>
+    <h2>${esc(CONFIG.leagueName || st.league.name)} · ${members.length} teams · GW${cur.id}</h2>
     ${cap}
     <div class="subnav" role="tablist">
       ${SECTIONS.map((s, i) =>
@@ -1747,7 +1834,7 @@ function renderLeague(st, members, hist, picks, cur, truncated){
 
   mountPhases(st.league.id, cur, myId);
 
-  // Historie je desítky dotazů, tak ji spustíme až když si o ni člověk řekne.
+  // History is dozens of requests, so it only starts when asked for.
   const histBtn = [...$('lout').querySelectorAll('.sub-btn')]
     .find(b => b.textContent.trim() === 'Historie');
   if(histBtn) histBtn.addEventListener('click', () => {
@@ -1757,31 +1844,31 @@ function renderLeague(st, members, hist, picks, cur, truncated){
     }
   }, {once: false});
 
-  // Živá tabulka se dopočítá až po vykreslení — nezdržuje zbytek panelu.
+  // The live table is computed after render — it does not hold up the panel.
   renderLive(members, picks, cur, myId);
 }
 
 /* ------------------------------------------------------------
-   Průběžné body během kola.
+   Live points during a gameweek.
 
-   Oficiální pořadí v FPL se přepočítává až po skončení všech zápasů.
-   Endpoint event/{gw}/live/ ale dává body jednotlivých hráčů okamžitě,
-   takže se dá poskládat, jak liga stojí právě teď — včetně bonusů,
-   které se počítají průběžně z BPS.
+   Official FPL standings are only recalculated after every match ends.
+   The event/{gw}/live/ endpoint gives individual player points
+   immediately, so the current state of the league can be assembled —
+   including bonus, which is computed live from BPS.
    ------------------------------------------------------------ */
 async function renderLive(members, picks, cur, myId){
   const box = $('livebox');
   if(!box) return;
 
   if(cur.finished){
-    box.innerHTML = '<p class="note">Kolo je uzavřené — průběžné pořadí se shoduje '
-      + 's oficiálním v záložce Pořadí.</p>';
+    box.innerHTML = '<p class="note">The gameweek is closed — live standings match '
+      + 'the official ones in the Standings view.</p>';
     return;
   }
 
   let live;
   try { live = await cached('event/' + cur.id + '/live/'); }
-  catch(e){ box.innerHTML = '<p class="note">Průběžné body se nepodařilo načíst: '
+  catch(e){ box.innerHTML = '<p class="note">Live points could not be loaded: '
     + esc(e.message) + '</p>'; return; }
 
   const pts = liveStats(live);
@@ -1791,10 +1878,10 @@ async function renderLive(members, picks, cur, myId){
     const pk = picks[i];
     if(!pk) return null;
 
-    // Autosuby i kapitánská páska řeší resolveLineup — tabulka jinak
-    // ukazovala nižší čísla, než jaká mají manažeři doopravdy.
+    // Autosubs and the armband are handled by resolveLineup — otherwise the
+    // table showed lower numbers than managers really have.
     const L = resolveLineup(pk, pts, cur.id);
-    const before = m.total - (m.event_total || 0);   // body před tímhle kolem
+    const before = m.total - (m.event_total || 0);   // points before this gameweek
 
     return {
       name: m.player_name, team: m.entry_name, entry: m.entry,
@@ -1804,68 +1891,68 @@ async function renderLive(members, picks, cur, myId){
     };
   }).filter(Boolean);
 
-  if(!rows.length){ box.innerHTML = '<p class="note">Sestavy pro tohle kolo zatím nejsou.</p>'; return; }
+  if(!rows.length){ box.innerHTML = '<p class="note">No squads for this gameweek yet.</p>'; return; }
 
   rows.sort((a, b) => b.total - a.total);
 
   const body = rows.map((r, i) => `<tr${r.entry === myId ? ' class="me"' : ''}>
       <td>${i + 1}</td>
       <td>${squadBtn(r.entry, cur.id, r.team, r.name)}<span class="sub">${esc(r.name)}</span></td>
-      <td>${esc(r.cap)}${r.subs ? `<span class="sub">${r.subs}× střídání</span>` : ''}</td>
+      <td>${esc(r.cap)}${r.subs ? `<span class="sub">${r.subs}× sub</span>` : ''}</td>
       <td>${r.toPlay ? r.toPlay : '–'}</td>
-      <td><b>${r.gw}</b>${r.cost ? `<span class="sub">−${r.cost} za přestupy</span>` : ''}</td>
+      <td><b>${r.gw}</b>${r.cost ? `<span class="sub">−${r.cost} for transfers</span>` : ''}</td>
       <td>${r.total}</td>
     </tr>`).join('');
 
   box.innerHTML = `<table>
-      <thead><tr><th>#</th><th>Tým</th><th>Kapitán</th><th>Nehrálo</th>
+      <thead><tr><th>#</th><th>Team</th><th>Captain</th><th>To play</th>
         <th>Kolo</th><th>Celkem</th></tr></thead>
       <tbody>${body}</tbody>
     </table>
-    <p class="note">Průběžné pořadí podle bodů, které hráči mají právě teď. Bonusy jsou
-    předběžné — FPL je dopočítává z BPS a po skončení zápasu se ještě mohou změnit.
-    Sloupec „Nehrálo“ říká, kolik hráčů ze sestavy ještě nenastoupilo. Automatická
-    střídání z lavičky i přesun kapitánské pásky na vicekapitána jsou započítané.</p>`;
+    <p class="note">Live standings from the points players have right now. Bonus is
+    provisional — FPL computes it from BPS and it can still change after a match ends.
+    The "To play" column says how many players in the lineup have not started yet.
+    Automatic substitutions and the armband moving to the vice captain are included.</p>`;
 }
 
-/* ============ HRÁČI + PROJEKCE ============ */
+/* ============ PLAYERS + PROJECTION ============ */
 
-// Kolik bodů dá FPL za gól a čisté konto podle pozice.
+// How many points FPL gives for a goal and a clean sheet, by position.
 const GOAL_PTS = {1: 10, 2: 6, 3: 5, 4: 4};
 const CS_PTS   = {1: 4,  2: 4, 3: 1, 4: 0};
 
-// Defenzivní příspěvky (bootstrap: game_config.scoring.defensive_contribution).
-// Práh je počet akcí za zápas, po jehož překročení padnou body.
+// Defensive contributions (bootstrap: game_config.scoring.defensive_contribution).
+// The threshold is the number of actions per match above which points are awarded.
 const DC_PTS       = {1: 0,  2: 2,  3: 2,  4: 2};
 const DC_THRESHOLD = {1: 0,  2: 10, 3: 12, 4: 12};
 
 /*
-  Odhad bodů pro jedno kolo. Je to hrubý model, ne předpověď — staví na tom,
-  že dlouhodobé xG a xA jsou lepší ukazatel budoucnosti než odehrané body,
-  které jsou plné náhody.
+  A points estimate for one gameweek. It is a rough model, not a forecast —
+  it assumes long-run xG and xA predict the future better than points
+  already scored, which are full of noise.
 
-  Model počítá zápas po zápase, ne kolo po kole. To je podstatný rozdíl:
-  v doublu hráč nastoupí dvakrát a jeho hodnota se zhruba zdvojnásobí,
-  v blanku je nula. Dřívější verze počítala vždy jeden zápas a v obou
-  případech se mýlila o sto procent.
+  The model works match by match, not gameweek by gameweek. That matters:
+  in a double the player starts twice and his value roughly doubles, in a
+  blank it is zero. An earlier version always counted one match and was
+  wrong by a hundred per cent in both cases.
 
-  Jeden zápas se skládá ze čtyř částí:
-    1) pravděpodobnost, že hráč vůbec nastoupí (z minut a hlášené dostupnosti)
-    2) očekávané góly a asistence na 90 minut, přepočtené body podle pozice
-    3) šance na čisté konto odvozená z obtížnosti soupeře
-    4) odhad bonusových bodů z dosavadního poměru bonusů na zápas
+  One match is made of four parts:
+    1) the chance he plays at all (from minutes and reported availability)
+    2) expected goals and assists per 90, converted to points by position
+    3) clean sheet odds derived from opponent difficulty
+    4) a bonus estimate from his bonus-per-match rate so far
 */
 
-/* Kolik kol už se odehrálo. Dřív se počet zápasů odhadoval z minut
-   (minutes / 75), což míchalo dohromady střídajícího hráče se stabilním
-   členem základu. `starts` a počet dokončených kol jsou přesnější. */
+/* How many gameweeks have been played. Match count used to be estimated
+   from minutes (minutes / 75), which lumped a substitute in with a regular
+   starter. `starts` and the number of finished gameweeks are more accurate. */
 function roundsPlayed(){
   const done = BOOT.events.filter(e => e.finished).length;
   return Math.max(1, done);
 }
 
 function appearances(p){
-  // Starty známe přesně; střídání dopočítáme z minut nad rámec startů.
+  // Starts are known exactly; appearances off the bench come from the extra minutes.
   const starts = p.starts || 0;
   const subMinutes = Math.max(0, p.minutes - starts * 78);
   return Math.max(starts + Math.round(subMinutes / 25), p.minutes > 0 ? 1 : 0);
@@ -1877,7 +1964,7 @@ function perMatchXp(p, difficulty, isHome){
   const rounds = roundsPlayed();
   const starts = p.starts || 0;
 
-  // Podíl kol, ve kterých byl v základu. Rozhoduje o tom, jestli vůbec hraje.
+  // Share of gameweeks started. This decides whether he plays at all.
   const startRate = Math.min(1, starts / rounds);
   const pPlay = (chance / 100) * (p.minutes > 0 ? Math.max(.2, startRate) : 0);
   const expMin = pPlay * (p.minutes / Math.max(apps, 1));
@@ -1888,17 +1975,17 @@ function perMatchXp(p, difficulty, isHome){
 
   const fd = difficulty === null || difficulty === undefined ? 3 : difficulty;
 
-  // čisté konto: FDR 2 je lehký soupeř, 5 těžký; doma o něco pravděpodobnější
+  // clean sheet: FDR 2 is an easy opponent, 5 a hard one; slightly likelier at home
   const pCS = Math.max(.04, Math.min(.6, .46 - .09 * (fd - 2) + (isHome ? .04 : -.04)));
 
-  // proti slabšímu soupeři se šance tvoří snáz, proti silnějšímu hůř
+  // chances come easier against a weaker opponent and harder against a stronger one
   const attFactor = Math.max(.65, Math.min(1.35, 1 + (3 - fd) * .13)) * (isHome ? 1.06 : .94);
 
   const appearance = pPlay * (expMin >= 60 ? 2 : 1);
   let attack = share * attFactor * (xg90 * GOAL_PTS[p.element_type] + xa90 * 3);
 
-  // Exekutoři standardek mají systematicky vyšší výnos, než jejich role napovídá.
-  // Penaltu kope jen jeden hráč v týmu a xG ji zachytí až se zpožděním.
+  // Set-piece takers systematically return more than their role suggests.
+  // Only one player takes penalties and xG picks that up with a delay.
   if(p.penalties_order === 1) attack += .35 * GOAL_PTS[p.element_type] * .18;
   if(p.corners_and_indirect_freekicks_order === 1) attack += .30;
 
@@ -1907,18 +1994,18 @@ function perMatchXp(p, difficulty, isHome){
 
   const bonus = pPlay * ((p.bonus || 0) / rounds);
 
-  // Defenzivní příspěvky: 2 body za dosažení prahu (10 akcí u obránců,
-  // 12 u záložníků a útočníků). Brankáři je nedostávají.
-  // Bez tohohle model systematicky podhodnocoval defenzivní záložníky —
-  // u nich to bývá klidně třetina reálného zisku za kolo.
+  // Defensive contributions: 2 points for reaching the threshold (10 actions
+  // for defenders, 12 for midfielders and forwards). Goalkeepers get none.
+  // Without this the model systematically undervalued defensive midfielders —
+  // for them it is easily a third of the real return per gameweek.
   const dcT = DC_THRESHOLD[p.element_type];
   let defcon = 0;
   if(dcT && DC_PTS[p.element_type]){
     const dc90 = parseFloat(p.defensive_contribution_per_90 || 0);
     if(dc90 > 0){
-      // Sezónní průměr sám o sobě neříká, jak často práh padne: hráč
-      // s průměrem přesně na prahu ho trefí zhruba v půlce zápasů, ne vždy.
-      // Logistická křivka kolem prahu je hrubá, ale poctivější než ostrý krok.
+      // A season average alone does not say how often the threshold falls: a
+      // player averaging exactly the threshold hits it in about half his
+      // matches, not always. A logistic curve around it is rough but fairer
       const pHit = 1 / (1 + Math.exp(-(dc90 - dcT) / (dcT * .22)));
       defcon = share * pHit * DC_PTS[p.element_type];
     }
@@ -1927,14 +2014,14 @@ function perMatchXp(p, difficulty, isHome){
   return Math.max(0, appearance + attack + defence + conceded + bonus + defcon);
 }
 
-/* Body za celé kolo = součet přes všechny zápasy, které tým v tom kole má.
-   Blank vrací 0, double zhruba dvojnásobek. */
+/* Points for a whole gameweek = the sum over every match the team plays.
+   A blank returns 0, a double roughly twice as much. */
 function projectGw(p, gw){
   const fx = gwFixtures(p.team, gw);
   return fx.reduce((sum, f) => sum + perMatchXp(p, f.d, f.home), 0);
 }
 
-/* Součet přes n kol dopředu — pro plánování transferů a čipů. */
+/* Sum over the next n gameweeks — for transfer and chip planning. */
 function projectRange(p, startGw, n){
   let sum = 0;
   for(let g = startGw; g < startGw + n; g++) sum += projectGw(p, g);
@@ -1943,11 +2030,11 @@ function projectRange(p, startGw, n){
 
 
 /* ------------------------------------------------------------
-   Optimální jedenáctka z patnácti.
+   The best XI out of fifteen.
 
-   FPL vyžaduje 1 brankáře, 3–5 obránců, 2–5 záložníků a 1–3 útočníky.
-   Projdeme všechny povolené formace a vybereme tu s nejvyšším součtem
-   projekce. Je jich patnáct, takže hrubá síla je tady namístě.
+   FPL requires 1 goalkeeper, 3–5 defenders, 2–5 midfielders and 1–3
+   forwards. We walk every legal formation and take the one with the
+   highest projected total. There are fifteen, so brute force is fine here.
    ------------------------------------------------------------ */
 const FORMATIONS = [];
 for(let d = 3; d <= 5; d++)
@@ -1956,7 +2043,7 @@ for(let d = 3; d <= 5; d++)
       if(1 + d + m + f === 11) FORMATIONS.push({2: d, 3: m, 4: f});
 
 function bestEleven(squad){
-  // squad: [{p, xp}, …] — všech 15
+  // squad: [{p, xp}, …] — all 15
   const byPos = {1: [], 2: [], 3: [], 4: []};
   squad.forEach(s => byPos[s.p.element_type].push(s));
   Object.values(byPos).forEach(a => a.sort((x, y) => y.xp - x.xp));
@@ -1982,12 +2069,12 @@ function bestEleven(squad){
 
 
 /* ------------------------------------------------------------
-   Oficiální čísla od FPL.
+   Official numbers from FPL.
 
-   `ep_next` a `ep_this` jsou projekce, které počítá samo FPL a posílá je
-   v bootstrapu u každého hráče. Jsou to jediná projekční čísla, která
-   nejsou moje — a proto jsou v přehledech hlavní. Můj vlastní model
-   zůstává jen tam, kde FPL nic nedává (výhled na víc kol, double kola).
+   `ep_next` and `ep_this` are projections FPL computes itself and sends in
+   the bootstrap for every player. They are the only projection numbers
+   that are not mine — which is why they lead the panels. My own model
+   stays where FPL gives nothing (multi-gameweek outlook, doubles).
    ------------------------------------------------------------ */
 function epNext(p){
   const v = parseFloat(p.ep_next);
@@ -1998,11 +2085,11 @@ function epThis(p){
   return Number.isFinite(v) ? v : null;
 }
 
-/* Bezpečné čtení čísla z několika možných názvů pole.
+/* Safely reads a number from one of several possible field names.
 
-   FPL přidává statistiky mezi sezónami a názvy se občas mění (defenzivní
-   příspěvky přibyly nedávno). Tohle vrátí null, když pole neexistuje,
-   a volající pak řádek prostě nezobrazí — místo aby psal NaN. */
+   FPL adds stats between seasons and names occasionally change (defensive
+   contributions are recent). This returns null when the field does not
+   exist and the caller then simply omits the row instead of printing NaN. */
 function stat(p, ...keys){
   for(const k of keys){
     if(p[k] === undefined || p[k] === null || p[k] === '') continue;
@@ -2012,11 +2099,11 @@ function stat(p, ...keys){
   return null;
 }
 
-/* Statistiky, které dávají smysl pro danou pozici.
+/* The stats that make sense for a given position.
 
-   Útočníka soudíš podle zapojení do gólů, obránce podle toho, kolik jeho
-   tým inkasuje, brankáře podle zákroků. Míchat je do jedné tabulky znamená
-   sloupce, které u půlky hráčů nic neříkají. */
+   You judge a forward by goal involvement, a defender by what his team
+   concedes, a keeper by saves. Mixing them into one table means columns
+   that say nothing for half the players. */
 function positionStats(p){
   const rows = [];
   const add = (label, value, note) => {
@@ -2028,58 +2115,58 @@ function positionStats(p){
     return v === null ? null : v.toFixed(2);
   };
 
-  // Společné pro všechny: kolik toho vůbec odehrál.
-  add('Odehrané minuty', p.minutes);
+  // Common to everyone: how much he has played at all.
+  add('Minutes played', p.minutes);
   add('Starty', p.starts);
 
   if(p.element_type === 1){
-    // Brankář: zákroky jsou jeho jediný vlastní bodovaný výkon.
-    add('Zákroky', stat(p, 'saves'), 'bod za každé 3');
-    add('Zákroky / 90', per90('saves_per_90'));
-    add('Chycené penalty', stat(p, 'penalties_saved'), '5 bodů za každou');
-    add('Čistá konta', stat(p, 'clean_sheets'));
-    add('Inkasované góly', stat(p, 'goals_conceded'));
-    add('xGC / 90', per90('expected_goals_conceded_per_90'), 'očekávané inkasované');
+    // Goalkeeper: saves are his only scoring contribution of his own.
+    add('Saves', stat(p, 'saves'), '1 point per 3');
+    add('Saves / 90', per90('saves_per_90'));
+    add('Penalties saved', stat(p, 'penalties_saved'), '5 points each');
+    add('Clean sheets', stat(p, 'clean_sheets'));
+    add('Goals conceded', stat(p, 'goals_conceded'));
+    add('xGC / 90', per90('expected_goals_conceded_per_90'), 'expected goals conceded');
   }
 
   if(p.element_type === 2){
-    add('Čistá konta', stat(p, 'clean_sheets'));
-    add('Inkasované góly', stat(p, 'goals_conceded'));
-    add('xGC / 90', per90('expected_goals_conceded_per_90'), 'očekávané inkasované');
-    add('xGI / 90', per90('expected_goal_involvements_per_90'), 'góly + asistence');
-    // Defenzivní příspěvky přibyly nedávno; když je FPL neposílá, řádek zmizí.
-    add('Defenzivní příspěvky', stat(p, 'defensive_contribution'), '2 body za 10 akcí');
+    add('Clean sheets', stat(p, 'clean_sheets'));
+    add('Goals conceded', stat(p, 'goals_conceded'));
+    add('xGC / 90', per90('expected_goals_conceded_per_90'), 'expected goals conceded');
+    add('xGI / 90', per90('expected_goal_involvements_per_90'), 'goals + assists');
+    // Defensive contributions are recent; when FPL omits them, the row disappears.
+    add('Defensive contributions', stat(p, 'defensive_contribution'), '2 points for 10 actions');
     add('DefCon / 90', per90('defensive_contribution_per_90'));
   }
 
   if(p.element_type === 3){
     add('xGI', stat(p, 'expected_goal_involvements'));
-    add('xGI / 90', per90('expected_goal_involvements_per_90'), 'góly + asistence');
+    add('xGI / 90', per90('expected_goal_involvements_per_90'), 'goals + assists');
     add('xG / 90', per90('expected_goals_per_90'));
     add('xA / 90', per90('expected_assists_per_90'));
-    add('xGC / 90', per90('expected_goals_conceded_per_90'), 'čisté konto = 1 bod');
-    add('Defenzivní příspěvky', stat(p, 'defensive_contribution'), '2 body za 12 akcí');
+    add('xGC / 90', per90('expected_goals_conceded_per_90'), 'clean sheet = 1 point');
+    add('Defensive contributions', stat(p, 'defensive_contribution'), '2 points for 12 actions');
   }
 
   if(p.element_type === 4){
     add('xGI', stat(p, 'expected_goal_involvements'));
-    add('xGI / 90', per90('expected_goal_involvements_per_90'), 'góly + asistence');
+    add('xGI / 90', per90('expected_goal_involvements_per_90'), 'goals + assists');
     add('xG / 90', per90('expected_goals_per_90'));
     add('xA / 90', per90('expected_assists_per_90'));
-    add('Góly', stat(p, 'goals_scored'));
+    add('Goals', stat(p, 'goals_scored'));
     add('Asistence', stat(p, 'assists'));
   }
 
-  // Role na standardkách — FPL to říká přímo, není co odhadovat.
+  // Set-piece duties — FPL states these directly, nothing to guess.
   const sp = [];
   if(p.penalties_order === 1) sp.push('penalty');
-  if(p.direct_freekicks_order === 1) sp.push('přímé kopy');
+  if(p.direct_freekicks_order === 1) sp.push('direct free kicks');
   if(p.corners_and_indirect_freekicks_order === 1) sp.push('rohy');
   if(sp.length) rows.push({label: 'Standardky', value: sp.join(', '), text: true});
 
   add('ICT index', stat(p, 'ict_index'));
   if(p.ict_index_rank_type) rows.push({
-    label: 'ICT v rámci pozice', value: '#' + p.ict_index_rank_type, text: true});
+    label: 'ICT within position', value: '#' + p.ict_index_rank_type, text: true});
 
   return rows;
 }
@@ -2094,12 +2181,12 @@ function statGrid(p){
     </div>`).join('')}</div>`;
 }
 
-/* Jméno na porovnatelný tvar: bez diakritiky, bez interpunkce, malé.
-   „Dúbravka“ i „Dubravka“ tak najdeš stejným dotazem.
+/* Normalises a name for comparison: no diacritics, no punctuation, lower
+   case, so "Dubravka" spelled either way matches the same query.
 
-   Pozor: tahle funkce odešla omylem spolu s panelem „Před deadlinem“,
-   přestože ji používá i hledání v Hráčích a v Plánovači. Projevilo se to
-   jako „normName is not defined“ až po napsání do vyhledávacího pole. */
+   Used by player search as well as several panels, so it lives here in
+   core rather than next to any one of them.
+   */
 function normName(s){
   return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z ]/g, '').trim();
@@ -2119,8 +2206,8 @@ function playerRows(){
       p, team: teams[p.team], price,
       fdr: f.avg,
       gwCount: gwFx.length,          // 0 = blank, 2 = double
-      ep: epNext(p),                 // oficiální projekce FPL na příští kolo
-      xp: projectGw(p, startGw),     // můj model — jen pro DGW a výhled
+      ep: epNext(p),                 // official FPL projection for the next gameweek
+      xp: projectGw(p, startGw),     // my model — only for DGW and the outlook
       xp5: projectRange(p, startGw, 5),
       value: p.total_points / price,
       xgi: parseFloat(p.expected_goal_involvements_per_90 || 0),

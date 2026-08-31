@@ -1,32 +1,33 @@
-/* Minileague Squad Check — obsah záložek
+/* FPL Squad Check — tab content
 
-   Vykreslování jednotlivých sekcí: nejlehčí los, Top hráči, historie
-   miniligy, diferenciály, ceny a watchlist, měsíční tabulky.
-   Zdaleka největší soubor projektu.
+   Rendering of the individual sections: easiest fixtures, top players,
+   league history, differentials, prices and the watchlist, monthly
+   tables. By far the largest file in the project.
 
-   Soubory js/ se načítají jako klasické <script> v pevném pořadí a
-   sdílejí jeden globální scope: nic se neexportuje ani neimportuje,
-   ale hoisting přes hranici souboru neplatí. Pořadí je proto součást
-   kontraktu a je vypsané v index.html.
+   The js/ files load as classic <script> tags in a fixed order and share
+   one global scope: nothing is exported or imported, but hoisting does
+   not cross file boundaries. The order is therefore part of the contract
+   and is written down in index.html.
    ============================================================ */
 /* ============================================================
-   NEJLEHČÍ LOS
+   EASIEST FIXTURES
 
-   Nahrazuje doporučení kapitána podle xP. Důvod: `ep_next` od FPL je
-   zaokrouhlené na desetinu a u špičkových hráčů vychází skoro stejně
-   (Haaland 4.0, Fernandes 4.0), takže z něj pořadí prostě nevznikne —
-   appka pak vážně tvrdila „jsou nerozeznatelní“ a byla k ničemu.
+   This replaces a captain recommendation by xP. Reason: FPL's `ep_next`
+   is rounded to one decimal and for top players comes out almost the same
+   (Haaland 4.0, Fernandes 4.0), so no ranking emerges — the app then
+   seriously said "they are indistinguishable", which was useless.
 
-   Tenhle blok nic nedoporučuje. Ukáže dva týmy s nejlehčím losem
-   v příštím kole, proti komu hrají, spočtenou obtížnost — a koho z těch
-   týmů máš v kádru. Rozhodnutí necháme na tobě; tohle je podklad.
+   This block recommends nothing. It shows the two teams with the easiest
+   fixture next gameweek, who they play, the computed difficulty — and
+   which of their players you own. The decision is yours; this is input.
    ============================================================ */
 
-/* Obtížnost týmu v daném kole. Double kolo bereme jako průměr obou
-   zápasů: dva středně těžké zápasy jsou pro kapitána často lepší než
-   jeden lehký, ale nechceme, aby to přebilo skutečně lehký los. */
+/* A team's difficulty in a given gameweek. A double is taken as the
+   average of both matches: two medium fixtures are often better for a
+   captain than one easy one, but we do not want that to outrank a genuinely
+   easy run of fixtures. */
 function teamGwFdr(teamId, gw){
-  // gwFixtures vrací už rozbalené {opp, home, d}, ne syrové zápasy.
+  // gwFixtures already returns unpacked {opp, home, d}, not raw fixtures.
   const fx = gwFixtures(teamId, gw);
   if(!fx.length) return null;
   const vals = fx.map(f => ownFdr(teamId, f.opp, f.home, f.d));
@@ -36,7 +37,7 @@ function teamGwFdr(teamId, gw){
   };
 }
 
-/* Řádek „tým vs soupeř“ s odznaky a barevnou obtížností. */
+/* A "team vs opponent" line with badges and colour-coded difficulty. */
 function fixtureLine(teamId, info){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   return info.fixtures.map(f => `<span class="fxpair">
@@ -56,7 +57,7 @@ function easiestFixtures(squad, startGw){
     .slice(0, 2);
 
   if(!ranked.length)
-    return '<p class="note">Rozpis na příští kolo zatím není k dispozici.</p>';
+    return '<p class="note">Fixtures for the next gameweek are not available yet.</p>';
 
   const cards = ranked.map((x, i) => {
     const mine = squad.filter(s => s.p.team === x.t.id)
@@ -72,26 +73,26 @@ function easiestFixtures(squad, startGw){
         ? `<div class="easymine">${mine.map(s => `<span class="pl">
              <b>${esc(s.p.web_name)}</b>
              <em>${(s.p.now_cost / 10).toFixed(1)}m</em>
-             ${s.starting ? '' : '<u>lavička</u>'}
+             ${s.starting ? '' : '<u>bench</u>'}
            </span>`).join('')}</div>`
-        : '<p class="easynone">Z tohohle týmu nemáš nikoho.</p>'}
+        : '<p class="easynone">You own nobody from this team.</p>'}
     </div>`;
   }).join('');
 
-  return `<h2>Nejlehčí los na GW${startGw}${info(`Dva týmy, které mají v příštím kole nejlehčí zápas.
-      Obtížnost počítám ze síly obou týmů, ne z pevného FDR od FPL, a rozlišuju
-      domácí zápas od venkovního. U dvojitého kola beru průměr obou zápasů.
-      <b>Není to doporučení na kapitána</b> — lehký los sám o sobě body nedělá.
-      Je to podklad: tohle jsou týmy, kde se dá čekat, že se bude hrát na jednu
+  return `<h2>Easiest fixtures for GW${startGw}${info(`The two teams with the easiest match next gameweek.
+      Difficulty is computed from the strength of both teams, not from FPL's fixed FDR, and home
+      and away are distinguished. For a double gameweek the average of both matches is used.
+      <b>This is not a captain recommendation</b> — an easy fixture does not score points by itself.
+      It is input: these are the teams where you can expect a one-sided game.
       branku.`)}</h2>
     <div class="easygrid">${cards}</div>
     `;
 }
 
-/* Tři nejdražší hráči v kádru a co je čeká.
+/* The three most expensive players in the squad and what they face.
 
-   Nejdražší hráči jsou ti, na kterých sezóna stojí — a taky ti, u kterých
-   se nejvíc vyplatí vědět, jestli je čeká lehký nebo těžký zápas. */
+   The priciest players are the ones the season rests on — and the ones
+   where it pays most to know whether an easy or a hard match is coming. */
 function topPriceBlock(squad, startGw){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   const top = [...squad]
@@ -100,8 +101,8 @@ function topPriceBlock(squad, startGw){
 
   if(!top.length) return '';
 
-  return `<h2>Tvoji tři nejdražší${info(`Nejdražší hráči v kádru a co je čeká v GW${startGw}.
-      Číslo vpravo je obtížnost zápasu na stupnici 1–5.`)}</h2>
+  return `<h2>Your three most expensive${info(`The priciest players in the squad and what they face in GW${startGw}.
+      The number on the right is fixture difficulty on a 1–5 scale.`)}</h2>
     <div class="pricetop">${top.map(s => {
       const info = teamGwFdr(s.p.team, startGw);
       return `<div class="ptrow">
@@ -111,7 +112,7 @@ function topPriceBlock(squad, startGw){
         <span class="cost">${(s.p.now_cost / 10).toFixed(1)}m</span>
         <span class="fx">${info
           ? fixtureLine(s.p.team, info)
-          : '<span class="blankfx">volné kolo</span>'}</span>
+          : '<span class="blankfx">blank gameweek</span>'}</span>
         <span class="fdr ${info ? fdrClass(info.fdr) : 'blank'}">${
           info ? info.fdr.toFixed(1) : '–'}</span>
       </div>`;
@@ -120,60 +121,60 @@ function topPriceBlock(squad, startGw){
 }
 
 /* ============================================================
-   TOP HRÁČI
+   TOP PLAYERS
 
-   Dřív to byla filtrovatelná tabulka všech ~700 hráčů. Fungovala,
-   ale odpovídala na otázku „najdi mi konkrétního hráče“ — a tu si
-   člověk položí zřídka. Častější je „kdo je letos nejlepší v X“,
-   a na to se z jedné dlouhé tabulky odpovídalo řazením a klikáním.
+   This used to be a filterable table of all ~700 players. It worked, but
+   it answered the question "find me a specific player" — which people
+   rarely ask. The commoner one is "who is the best at X this season", and
+   answering that from one long table meant sorting and clicking.
 
-   Teď jsou to žebříčky: každá kategorie jeden box, top 10 v každém.
-   Pod nimi porovnání dvou libovolných hráčů vedle sebe.
+   Now they are leaderboards: one box per category, top 10 in each. Below
+   them, a side-by-side comparison of any two players.
    ============================================================ */
 
-/* Kategorie: [klíč, nadpis, popisek, formát čísla, povolené pozice].
+/* A category: [key, heading, caption, number format, allowed positions].
 
-   Pole se čtou přes stat(), takže když je FPL v dané sezóně neposílá,
-   box to řekne místo aby ukazoval samé nuly. */
-/* Řádek 1: body podle pozice. Nejčastější otázka na začátku sezóny
-   nezní „kdo dal nejvíc gólů“, ale „kdo je letos nejlepší záložník“ —
-   a na tu se z gólové tabulky odpovídá špatně, protože obránce
-   s pěti čistými konty v ní vůbec není. */
+   The fields are read through stat(), so when FPL does not send them in a
+   given season the box says so instead of showing zeroes. */
+/* Row 1: points by position. The commonest question early in the season
+   is not "who scored the most goals" but "who is the best midfielder this
+   year" — and a goals table answers that badly, because a defender with
+   five clean sheets is not in it at all. */
 const TOP_POINTS = [
-  ['total_points', 'Brankáři', 'nejvíc bodů za sezónu', v => v, [1]],
-  ['total_points', 'Obránci', 'nejvíc bodů za sezónu', v => v, [2]],
-  ['total_points', 'Záložníci', 'nejvíc bodů za sezónu', v => v, [3]],
-  ['total_points', 'Útočníci', 'nejvíc bodů za sezónu', v => v, [4]],
+  ['total_points', 'Goalkeepers', 'most points this season', v => v, [1]],
+  ['total_points', 'Defenders', 'most points this season', v => v, [2]],
+  ['total_points', 'Midfielders', 'most points this season', v => v, [3]],
+  ['total_points', 'Forwards', 'most points this season', v => v, [4]],
 ];
 
-/* Řádky 2 a 3: osm kategorií, mřížka je čtyřsloupcová, takže se
-   zalomí přesně na čtyři a čtyři. Pořadí není náhodné — nahoře to,
-   co se opravdu stalo, dole očekávané hodnoty. */
+/* Rows 2 and 3: eight categories; the grid has four columns, so it wraps
+   exactly four and four. The order is not random — what actually happened
+   on top, expected values below. */
 const TOP_FIELD = [
-  ['goals_scored', 'Góly', 'branky za sezónu', v => v, null],
-  ['assists', 'Asistence', 'nahrávky na gól', v => v, null],
+  ['goals_scored', 'Goals', 'goals this season', v => v, null],
+  ['assists', 'Assists', 'assists this season', v => v, null],
   ['defensive_contribution', 'DEFCON',
-    'defenzivní příspěvky · 2 body za práh', v => v, null],
-  ['bonus', 'Bonusy', 'bonusové body z BPS', v => v, null],
-  ['expected_goals', 'xG', 'očekávané góly z kvality šancí',
+    'defensive contributions · 2 points at the threshold', v => v, null],
+  ['bonus', 'Bonus', 'bonus points from BPS', v => v, null],
+  ['expected_goals', 'xG', 'expected goals from chance quality',
     v => v.toFixed(2), null],
-  ['expected_assists', 'xA', 'očekávané asistence',
+  ['expected_assists', 'xA', 'expected assists',
     v => v.toFixed(2), null],
   ['expected_goal_involvements', 'xGI', 'xG a xA dohromady',
     v => v.toFixed(2), null],
   ['expected_goal_involvements_per_90', 'xGI / 90',
-    'očekávané zapojení na 90 minut', v => v.toFixed(2), null],
+    'expected involvement per 90 minutes', v => v.toFixed(2), null],
 ];
 
 const TOP_GK = [
-  ['clean_sheets', 'Čistá konta', 'zápasy bez inkasovaného gólu', v => v, [1]],
-  ['saves', 'Zákroky', 'bod za každé tři', v => v, [1]],
-  ['saves_per_90', 'Zákroky / 90', 'vytíženost brankáře', v => v.toFixed(2), [1]],
-  ['bonus', 'Bonusy brankářů', 'bonusové body z BPS', v => v, [1]],
+  ['clean_sheets', 'Clean sheets', 'matches without conceding', v => v, [1]],
+  ['saves', 'Saves', 'one point per three', v => v, [1]],
+  ['saves_per_90', 'Saves / 90', 'goalkeeper workload', v => v.toFixed(2), [1]],
+  ['bonus', 'Goalkeeper bonus', 'bonus points from BPS', v => v, [1]],
 ];
 
-/* Jeden žebříček. `types` omezí pozice — brankářské kategorie nemá smysl
-   počítat přes hráče v poli a góly zase přes brankáře. */
+/* One leaderboard. `types` limits the positions — goalkeeper categories
+   make no sense across outfield players, and goals across keepers. */
 function topBoard([key, title, cap, fmt, types]){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
 
@@ -191,18 +192,18 @@ function topBoard([key, title, cap, fmt, types]){
   if(!rows.length)
     return `<div class="tbox">
       <h4>${esc(title)}</h4><p class="cap">${esc(cap)}</p>
-      <p class="tempty">Tuhle statistiku FPL zatím neposílá, nebo ji nikdo
-        nemá nenulovou.</p></div>`;
+      <p class="tempty">FPL does not send this stat yet, or nobody has a
+        non-zero value.</p></div>`;
 
-  /* Trofej u prvních tří — stejné medaile jako v žebříčku historických
-     sezón, ať appka nemá dva různé způsoby, jak říct „třetí místo“.
-     Medaile nahrazuje pořadové číslo, nepřidává se k němu. */
+  /* A trophy for the first three — the same medals as in the historical
+     seasons table, so the app does not have two different ways of saying
+     "third place". The medal replaces the position number, it is not added to it. */
   return `<div class="tbox">
-    <h4>${esc(title)}${info(`Top 10 za celou sezónu. Klikni na jméno pro detail
-      hráče. Zvýrazněné řádky jsou hráči z tvé sestavy.`)}</h4><p class="cap">${esc(cap)}</p>
+    <h4>${esc(title)}${info(`Top 10 across the whole season. Click a name for player
+      detail. Highlighted rows are players in your squad.`)}</h4><p class="cap">${esc(cap)}</p>
     <ol class="tlist">${rows.map((x, i) => `<li class="${
         MY_SQUAD && MY_SQUAD.has(x.p.id) ? 'me' : ''}">
-      ${i < 3 ? `<i class="tmdl" title="${i + 1}. místo">${MEDAL[i + 1]}</i>` : ''}
+      ${i < 3 ? `<i class="tmdl" title="place ${i + 1}">${MEDAL[i + 1]}</i>` : ''}
       <button type="button" class="tname" data-pid="${x.p.id}">
         ${crest(x.p.team, 'sm')}
         <b>${esc(x.p.web_name)}</b>
@@ -214,12 +215,12 @@ function topBoard([key, title, cap, fmt, types]){
 }
 
 /* ------------------------------------------------------------
-   Porovnání dvou hráčů.
+   Comparing two players.
 
-   Nejčastější otázka v FPL nezní „kdo je nejlepší“, ale „koho
-   z těch dvou“. Dřív se hráči vybírali tlačítkem v dlouhé tabulce;
-   teď jsou to dva seznamy s hledáním, takže jde porovnat kdokoli
-   s kýmkoli bez lovení řádku.
+   The commonest question in FPL is not "who is best" but "which of these
+   two". Players used to be picked with a button in a long table; now
+   there are two searchable lists, so anyone can be compared with anyone
+   without hunting for a row.
    ------------------------------------------------------------ */
 let CMP_A = null, CMP_B = null;
 
@@ -233,20 +234,20 @@ function comparePickers(){
       p.total_points} b</option>`).join('');
 
   return `<div class="cmpbar">
-    <label>První hráč
-      <input type="search" id="cmpqa" placeholder="Hledej podle jména…" autocomplete="off">
-      <select id="cmpa"><option value="">Vyber hráče…</option>${opts(CMP_A)}</select>
+    <label>First player
+      <input type="search" id="cmpqa" placeholder="Search by name…" autocomplete="off">
+      <select id="cmpa"><option value="">Pick a player…</option>${opts(CMP_A)}</select>
     </label>
     <span class="cmpvs">vs</span>
-    <label>Druhý hráč
-      <input type="search" id="cmpqb" placeholder="Hledej podle jména…" autocomplete="off">
-      <select id="cmpb"><option value="">Vyber hráče…</option>${opts(CMP_B)}</select>
+    <label>Second player
+      <input type="search" id="cmpqb" placeholder="Search by name…" autocomplete="off">
+      <select id="cmpb"><option value="">Pick a player…</option>${opts(CMP_B)}</select>
     </label>
   </div>`;
 }
 
-/* Řádek porovnání: [popisek, text A, text B, číslo A, číslo B, je vyšší lepší?].
-   U ceny a inkasovaných gólů je lepší nižší — proto ten poslední příznak. */
+/* A comparison row: [label, text A, text B, number A, number B, is higher better?].
+   For price and goals conceded lower is better — hence the last flag. */
 function compareRows(a, b){
   const num = (p, k) => stat(p, k) || 0;
   const both = (label, fn, fmt, higher = true) =>
@@ -254,25 +255,25 @@ function compareRows(a, b){
 
   const rows = [
     both('Body celkem', p => p.total_points, v => v),
-    both('Body za zápas', p => parseFloat(p.points_per_game) || 0, v => v.toFixed(1)),
+    both('Points per match', p => parseFloat(p.points_per_game) || 0, v => v.toFixed(1)),
     both('Forma', p => parseFloat(p.form) || 0, v => v.toFixed(1)),
-    both('Projekce FPL · příští kolo', p => epNext(p) || 0, v => v.toFixed(1)),
+    both('FPL projection · next gameweek', p => epNext(p) || 0, v => v.toFixed(1)),
     both('Cena', p => p.now_cost / 10, v => v.toFixed(1) + 'm', false),
     both('Body za milion', p => p.total_points / (p.now_cost / 10), v => v.toFixed(1)),
     both('Minuty', p => p.minutes, v => v),
     both('Starty', p => p.starts || 0, v => v),
-    both('Vlastní %', p => parseFloat(p.selected_by_percent) || 0, v => v.toFixed(1) + ' %'),
-    both('Bonusové body', p => p.bonus || 0, v => v),
+    both('Owned %', p => parseFloat(p.selected_by_percent) || 0, v => v.toFixed(1) + ' %'),
+    both('Bonus points', p => p.bonus || 0, v => v),
   ];
 
-  // Brankáře a hráče v poli soudíme podle jiných věcí.
+  // Goalkeepers and outfield players are judged on different things.
   if(a.element_type === 1 && b.element_type === 1){
-    rows.push(both('Čistá konta', p => num(p, 'clean_sheets'), v => v));
-    rows.push(both('Zákroky', p => num(p, 'saves'), v => v));
-    rows.push(both('Zákroky / 90', p => num(p, 'saves_per_90'), v => v.toFixed(2)));
-    rows.push(both('Inkasované góly', p => num(p, 'goals_conceded'), v => v, false));
+    rows.push(both('Clean sheets', p => num(p, 'clean_sheets'), v => v));
+    rows.push(both('Saves', p => num(p, 'saves'), v => v));
+    rows.push(both('Saves / 90', p => num(p, 'saves_per_90'), v => v.toFixed(2)));
+    rows.push(both('Goals conceded', p => num(p, 'goals_conceded'), v => v, false));
   }else{
-    rows.push(both('Góly', p => p.goals_scored || 0, v => v));
+    rows.push(both('Goals', p => p.goals_scored || 0, v => v));
     rows.push(both('Asistence', p => p.assists || 0, v => v));
     rows.push(both('xG', p => num(p, 'expected_goals'), v => v.toFixed(2)));
     rows.push(both('xA', p => num(p, 'expected_assists'), v => v.toFixed(2)));
@@ -297,7 +298,7 @@ function drawCompare(){
   if(!a || !b){
     body = ``;
   }else if(a.id === b.id){
-    body = '<p class="note">To je dvakrát ten samý hráč — vyber dva různé.</p>';
+    body = '<p class="note">That is the same player twice — pick two different ones.</p>';
   }else{
     const rows = compareRows(a, b).map(([label, va, vb, na, nb, higher]) => {
       const aw = higher ? na > nb : na < nb;
@@ -309,9 +310,9 @@ function drawCompare(){
       </tr>`;
     }).join('');
 
-    /* Verdikt počítám z projekce na pět kol dopředu, ne ze sezónních
-       součtů. Ty říkají, kdo byl lepší — ne kdo bude, a to je otázka,
-       kterou si člověk u porovnání klade. */
+    /* The verdict comes from a projection five gameweeks ahead, not from
+       season totals. Those say who has been better — not who will be, and
+       that is the question people ask when comparing. */
     const start = planStartGw();
     const xa = projectRange(a, start, 5), xb = projectRange(b, start, 5);
     const diff = Math.abs(xa - xb);
@@ -327,32 +328,32 @@ function drawCompare(){
       </div>
       <table class="ctab"><tbody>${rows}</tbody></table>
       <p class="note">${diff < 1.5
-        ? `Přes příštích pět kol jsou prakticky nerozeznatelní (rozdíl
-           ${diff.toFixed(1)} bodu). Rozhodni podle ceny nebo podle toho,
-           koho má tvoje miniliga.`
-        : `Přes příštích pět kol vede <b>${esc(lead.web_name)}</b> o
+        ? `Over the next five gameweeks they are practically indistinguishable (a difference of
+           ${diff.toFixed(1)} bodu). Rozhodni podle awards_ nebo podle toho,
+           who your mini-league owns.`
+        : `Over the next five gameweeks <b>${esc(lead.web_name)}</b> leads by
            ${diff.toFixed(1)} bodu. ${dPrice > 0
-             ? `Stojí ale o ${dPrice.toFixed(1)}m víc — ptej se, jestli ten
-                rozdíl jinde v sestavě nevyužiješ líp.`
-             : dPrice < 0 ? 'A je zároveň levnější.' : 'Za stejné peníze.'}`}
+             ? `But he costs ${dPrice.toFixed(1)}m more — ask whether that
+                difference would work harder elsewhere in the squad.`
+             : dPrice < 0 ? 'And he is cheaper too.' : 'For the same money.'}`}
         ${a.element_type !== b.element_type
-          ? '<br><b>Pozor:</b> porovnáváš různé pozice, takže se liší i bodování — '
-            + 'čisté konto dá obránci 4 body, záložníkovi 1 a útočníkovi žádný.'
+          ? '<br><b>Careful:</b> you are comparing different positions, so the scoring differs too — '
+            + 'a clean sheet is worth 4 points to a defender, 1 to a midfielder and none to a forward.'
           : ''}</p>`;
   }
 
-  box.innerHTML = `<h2>Porovnání dvou hráčů${info(`Vyber dva hráče a porovnám je
-      vedle sebe. Zelené pole ukazuje, kdo v daném ukazateli vede. Sada řádků se
-      mění podle pozice: dva brankáři dostanou zákroky a inkasované góly, hráči
-      v poli xG, xA a defenzivní příspěvky. U ceny a inkasovaných gólů vyhrává
-      nižší číslo. Verdikt dole počítám z projekce na pět kol dopředu, ne ze
-      sezónních součtů — ty říkají, kdo byl lepší, ne kdo bude.`)}</h2>${comparePickers()}
+  box.innerHTML = `<h2>Compare two players${info(`Pick two players and I will put them
+      side by side. A green cell shows who leads on that measure. The set of rows
+      changes with position: two goalkeepers get saves and goals conceded, outfield
+      players get xG, xA and defensive contributions. For price and goals conceded the
+      lower number wins. The verdict at the bottom comes from a projection five gameweeks
+      ahead, not from season totals — those say who has been better, not who will be.`)}</h2>${comparePickers()}
     <div class="cmpout">${body}</div>`;
 
-  /* Hledání seznam nefiltruje, ale vybere nejlepší shodu. Filtrovat
-     <select> znamená mazat a znovu stavět stovky <option> při každém
-     stisku klávesy — tohle je rychlejší a hlavně ti pod rukama nezmizí
-     hráč, kterého jsi právě vybral. */
+  /* The search does not filter the list, it selects the best match.
+     Filtering a <select> means deleting and rebuilding hundreds of
+     <option> elements on every keystroke — this is faster and, more
+     importantly, the player you just picked does not vanish. */
   const wire = (qid, sid, set) => {
     const sel = $(sid), q = $(qid);
     sel.addEventListener('change', () => {
@@ -374,13 +375,13 @@ function drawCompare(){
 
 function drawTopPlayers(){
   $('pout').innerHTML = [
-    `<h2>Nejvíc bodů podle pozice${info(`Top 10 v každé řadě za celou sezónu.
-      Zvýrazněné řádky jsou hráči z tvé sestavy — kádr si nech načíst v záložce
-      Sestava. Klikni na jméno pro detail hráče.`)}</h2>`,
+    `<h2>Most points by position${info(`Top 10 in each line across the whole season.
+      Highlighted rows are players in your squad — load it in the Squad tab.
+      Click a name for player detail.`)}</h2>`,
     `<div class="tgrid">${TOP_POINTS.map(topBoard).join('')}</div>`,
-    '<h2>Hráči v poli</h2>',
+    '<h2>Outfield players</h2>',
     `<div class="tgrid">${TOP_FIELD.map(topBoard).join('')}</div>`,
-    '<h2>Brankáři</h2>',
+    '<h2>Goalkeepers</h2>',
     `<div class="tgrid">${TOP_GK.map(topBoard).join('')}</div>`,
   ].join('');
 
@@ -393,9 +394,10 @@ function drawTopPlayers(){
 async function loadPlayers(){
   $('pmsg').textContent = '';
   try{
-    /* Rozpis je potřeba kvůli projekci ve verdiktu porovnání. Dřív se sem
-       došlo s BOOT načteným a FIX null, funkce spadla a záložka zůstala
-       prázdná bez jediného slova. Tichá chyba je horší než hlasitá. */
+    /* The fixture list is needed for the projection in the comparison
+       verdict. This used to be reached with BOOT loaded and FIX null, the
+       function threw and the tab stayed blank without a word. A silent
+       failure is worse than a loud one. */
     if(!BOOT) BOOT = await api('bootstrap-static/');
     if(!FIX) FIX = await api('fixtures/');
     if(!PLAYERS){
@@ -411,7 +413,7 @@ async function loadPlayers(){
 
 async function showPlayer(pid){
   const row = PLAYERS.find(r => r.p.id === pid);
-  $('pdetail').innerHTML = '<div class="detail"><p class="note">Načítám historii…</p></div>';
+  $('pdetail').innerHTML = '<div class="detail"><p class="note">Loading history…</p></div>';
   $('pdetail').scrollIntoView({behavior: 'smooth', block: 'nearest'});
 
   let sum;
@@ -435,7 +437,7 @@ async function showPlayer(pid){
   const pills = last5.length
     ? `<div class="pills">${last5.map(h => `<span class="pill ${pillCls(h.total_points)}">
         ${h.total_points}<small>GW${h.round}</small></span>`).join('')}</div>`
-    : '<p class="note">Zatím žádné odehrané zápasy v této sezóně.</p>';
+    : '<p class="note">No matches played this season yet.</p>';
 
   const season = hist.reduce((a, h) => ({
     pts: a.pts + h.total_points, min: a.min + h.minutes,
@@ -448,7 +450,7 @@ async function showPlayer(pid){
   }).join(' | ');
 
   const table = hist.length ? `<table style="margin-top:14px">
-    <thead><tr><th>GW</th><th class="hide-s">Soupeř</th><th class="n">Min</th>
+    <thead><tr><th>GW</th><th class="hide-s">Opponent</th><th class="n">Min</th>
       <th class="n">G</th><th class="n">A</th><th class="n hide-s">xG</th>
       <th class="n hide-s">xA</th><th class="n">Bon</th><th class="n">Body</th></tr></thead>
     <tbody>${hist.slice().reverse().slice(0, 12).map(h => {
@@ -466,13 +468,13 @@ async function showPlayer(pid){
       </tr>`;
     }).join('')}</tbody></table>` : '';
 
-  // Předchozí sezóny — jediná obrana proti malému vzorku u hráče,
-  // který letos odehrál pár set minut.
+  // Previous seasons — the only defence against a small sample for a
+  // player who has played a few hundred minutes this year.
   const past = (sum.history_past || []).slice(-4).reverse();
   const pastHtml = past.length ? `
-    <h2>Předchozí sezóny</h2>
+    <h2>Previous seasons</h2>
     <table>
-      <thead><tr><th>Sezóna</th><th class="n">Body</th><th class="n">Minuty</th>
+      <thead><tr><th>Season</th><th class="n">Points</th><th class="n">Minutes</th>
         <th class="n hide-s">Cena start</th><th class="n hide-s">Cena konec</th></tr></thead>
       <tbody>${past.map(x => `<tr>
         <td>${esc(x.season_name)}</td>
@@ -482,31 +484,31 @@ async function showPlayer(pid){
         <td class="n hide-s">${(x.end_cost / 10).toFixed(1)}</td>
       </tr>`).join('')}</tbody>
     </table>`
-    : '<p class="note">V Premier League zatím neodehrál žádnou předchozí sezónu.</p>';
+    : '<p class="note">He has not played a previous Premier League season.</p>';
 
   $('pdetail').innerHTML = `<div class="detail">
-    <button class="close" id="pclose" aria-label="Zavřít">×</button>
+    <button class="close" id="pclose" aria-label="Close">×</button>
     <h3>${esc(row.p.first_name)} ${esc(row.p.second_name)}</h3>
     <div class="who">${esc(row.team.name)} · ${POS[row.p.element_type]} · ${row.price.toFixed(1)}m</div>
 
     <div class="kpis eprow">
-      <div><div class="k">Projekce FPL · příští kolo</div>
+      <div><div class="k">FPL projection · next gameweek</div>
         <div class="v big">${row.ep === null ? '–' : row.ep.toFixed(1)}</div></div>
-      <div><div class="k">Projekce FPL · toto kolo</div>
+      <div><div class="k">FPL projection · this gameweek</div>
         <div class="v">${epThis(row.p) === null ? '–' : epThis(row.p).toFixed(1)}</div></div>
-      <div><div class="k">Body za zápas</div><div class="v">${row.p.points_per_game}</div></div>
+      <div><div class="k">Points per match</div><div class="v">${row.p.points_per_game}</div></div>
       <div><div class="k">Forma</div><div class="v">${row.p.form}</div></div>
     </div>
 
-    <h2>Statistiky podle pozice${info(`Všechno naměřená čísla z FPL, nic dopočítaného.
-    ${row.p.element_type === 1 ? 'U brankáře rozhodují zákroky a čistá konta.'
-      : row.p.element_type === 2 ? 'U obránce sleduj xGC — kolik jeho tým očekávaně inkasuje.'
-      : row.p.element_type === 3 ? 'Záložník bere body z obou stran: zapojení do gólů i čisté konto.'
-      : 'U útočníka je podstatné xGI — jak často se dostává ke gólovým situacím.'}`)}</h2>
+    <h2>Stats by position${info(`All measured numbers from FPL, nothing derived.
+    ${row.p.element_type === 1 ? 'For a goalkeeper, saves and clean sheets decide.'
+      : row.p.element_type === 2 ? 'For a defender watch xGC — how much his team is expected to concede.'
+      : row.p.element_type === 3 ? 'A midfielder scores from both ends: goal involvement and clean sheets.'
+      : 'For a forward xGI matters — how often he gets into goalscoring situations.'}`)}</h2>
     ${statGrid(row.p)}
     
 
-    <h2 style="margin-top:16px">Posledních 5 kol</h2>
+    <h2 style="margin-top:16px">Last 5 gameweeks</h2>
     ${pills}
     <div class="kpis">
       <div><div class="k">Body</div><div class="v">${agg.pts}</div></div>
@@ -517,19 +519,19 @@ async function showPlayer(pid){
     </div>
     ${last5.length ? `<p class="note">${
       (agg.g + agg.as) > (agg.xg + agg.xa) + 1
-        ? 'Skóruje nad očekávání — část bodů je štěstí a nemusí vydržet.'
+        ? 'Scoring above expectation — some of the points are luck and may not last.'
         : (agg.xg + agg.xa) > (agg.g + agg.as) + 1
-          ? 'Šance si vytváří, ale nepromítly se do bodů — může se to obrátit.'
-          : 'Body zhruba odpovídají vytvořeným šancím.'}</p>` : ''}
+          ? 'He is creating chances that have not turned into points — that can flip.'
+          : 'Points roughly match the chances created.'}</p>` : ''}
 
-    <h2>Celá sezóna</h2>
+    <h2>Whole season</h2>
     <div class="kpis">
       <div><div class="k">Body</div><div class="v">${season.pts}</div></div>
-      <div><div class="k">Zápasy</div><div class="v">${hist.length}</div></div>
+      <div><div class="k">Matches</div><div class="v">${hist.length}</div></div>
       <div><div class="k">Minuty</div><div class="v">${season.min}</div></div>
       <div><div class="k">G + A</div><div class="v">${season.g}+${season.as}</div></div>
-      <div><div class="k">Vlastní %</div><div class="v">${row.p.selected_by_percent}</div></div>
-      <div><div class="k">Model · 5 kol</div><div class="v">${row.xp5.toFixed(1)}</div></div>
+      <div><div class="k">Owned %</div><div class="v">${row.p.selected_by_percent}</div></div>
+      <div><div class="k">Model · 5 gwCount</div><div class="v">${row.xp5.toFixed(1)}</div></div>
     </div>
     ${upcoming ? `<p class="note">Program: ${esc(upcoming)}</p>` : ''}
     ${pastHtml}
@@ -542,14 +544,8 @@ async function showPlayer(pid){
 
 $('t-players').addEventListener('click', () => { loadPlayers(); });
 
-/* ============ TRANSFERY ============
-   Postup:
-     1. načti sestavu a stav banky
-     2. priorita 1 — zranění, suspenze, nebo 3 zápasy v řadě s FDR 4+
-     3. priorita 2 — 3 a více zápasů po sobě pod 3 body
-     4. ke každému problému najdi náhrady, které se vejdou do rozpočtu
-*/
-
+/* Next `n` fixtures for a team from a given gameweek. Used by the price
+   watchlist and the injuries table. */
 function nextFixtures(teamId, startGw, n){
   const out = [];
   for(const f of FIX){
@@ -560,578 +556,43 @@ function nextFixtures(teamId, startGw, n){
   return out.sort((a, b) => a.gw - b.gw).slice(0, n);
 }
 
-async function analyzeTransfers(){
-  $('trmsg').textContent = 'Načítám sestavu…';
-  $('trout').innerHTML = '<div class="skel"><i></i><i></i><i></i><i></i><i></i></div>';
-  try{
-    if(!BOOT){ [BOOT, FIX] = await Promise.all([api('bootstrap-static/'), api('fixtures/')]); }
-    if(!PLAYERS) PLAYERS = playerRows();
-
-    const entryId = CONFIG.entryId || localStorage.getItem('fpl_entry');
-    if(!entryId){ $('trmsg').textContent = 'Nejdřív si načti sestavu v záložce Sestava.'; return; }
-
-    const cur = BOOT.events.find(e => e.is_current);
-    const nxt = BOOT.events.find(e => e.is_next);
-    const startGw = nxt ? nxt.id : (cur ? cur.id + 1 : 1);
-
-    if(!cur){
-      $('trmsg').textContent = 'Sezóna ještě nezačala — analýza dává smysl až po prvním kole.';
-      return;
-    }
-
-    const picks = await api('entry/' + entryId + '/event/' + cur.id + '/picks/');
-    const bank = (picks.entry_history.bank || 0) / 10;
-
-    // Nákupní ceny. Když endpoint selže, spadneme na cenu na začátku sezóny —
-    // to je pořád lepší než ruční zadávání, jen to nezachytí pozdější nákupy.
-    try{
-      BUY_COST = buildBuyCost(await cached('entry/' + entryId + '/transfers/'));
-    }catch(e){
-      BUY_COST = null;
-    }
-
-    $('trmsg').textContent = 'Procházím ' + picks.picks.length + ' hráčů…';
-
-    // historie kazdeho hrace v kadru — kvuli bodum za posledni zapasy
-    const summaries = (await pooled(picks.picks,
-      pk => cached('element-summary/' + pk.element + '/').then(r => r.history || []),
-      5, (d, t) => { $('trmsg').textContent = `Procházím kádr… ${d}/${t}`; })).map(x => x || []);
-
-    const els0 = Object.fromEntries(BOOT.elements.map(p => [p.id, p]));
-    const squad = picks.picks.map(pk => ({p: els0[pk.element], pick: pk})).filter(x => x.p);
-
-    // ulozime si to, aby slo prepocitat po rucni uprave cen bez novych dotazu
-    TR_STATE = {picks, summaries, squad, apiBank: bank, startGw};
-    renderTransfers();
-    $('trmsg').textContent = '';
-  }catch(e){
-    $('trmsg').innerHTML = errBox(e.message, null, () => analyzeTransfers());
-  }
-}
-
-/* --- rucni korekce cen -------------------------------------------------
-   FPL veřejně nedává prodejní cenu (při zdražení vrací jen polovinu zisku),
-   takže odhad z aktuální ceny bývá o desetinu vedle. Uživatel si ji může
-   přepsat podle toho, co vidí ve své sestavě na FPL; ukládá se do prohlížeče.
-*/
-let TR_STATE = null;
-
-/* Ruční prodejní ceny a banka patří ke konkrétnímu týmu, ne k prohlížeči.
-   Dřív byly klíče sdílené, takže po přepnutí na jiné ID se objevily cizí
-   částky u cizí sestavy. Klíčujeme proto podle entry ID. */
-const SELL_KEY = () => 'fpl_sell:' + (ENTRY_ID || '0');
-const BANK_KEY = () => 'fpl_bank:' + (ENTRY_ID || '0');
-
-function loadSell(){
-  try { return JSON.parse(localStorage.getItem(SELL_KEY()) || '{}'); }
-  catch(e){ return {}; }
-}
-function saveSell(o){ lsSet(SELL_KEY(), JSON.stringify(o)); }
-
-/* ------------------------------------------------------------
-   Nákupní ceny z entry/{id}/transfers/.
-
-   Dřív se prodejní ceny zadávaly ručně, protože FPL je v picks
-   neposílá. Endpoint transfers/ ale posílá u každého přestupu
-   `element_in_cost` — nákupní cenu v desetinách milionu.
-
-   Hráč, kterého jsi nikdy nekupoval, je z původního kádru: jeho
-   nákupní cena je `now_cost - cost_change_start`.
-
-   Klíčem je poslední přestup dovnitř. Když hráče prodáš a za tři
-   kola koupíš zpátky dráž, platí ta novější cena.
-   ------------------------------------------------------------ */
-let BUY_COST = null;   // {playerId: cena v desetinách} nebo null = nenačteno
-
-function buildBuyCost(transfers){
-  const map = {};
-  const byPlayer = {};
-  for(const t of (transfers || [])){
-    const prev = byPlayer[t.element_in];
-    // event může chybět u přestupů udělaných před prvním kolem
-    const ev = Number.isFinite(t.event) ? t.event : 0;
-    if(!prev || ev >= prev.ev) byPlayer[t.element_in] = {ev, cost: t.element_in_cost};
-  }
-  for(const [pid, v] of Object.entries(byPlayer))
-    if(Number.isFinite(v.cost)) map[pid] = v.cost;
-  return map;
-}
-
-/* Nákupní cena v desetinách. Vrací null, když ji nedokážeme určit. */
-function buyCost(p){
-  if(BUY_COST && Number.isFinite(BUY_COST[p.id])) return BUY_COST[p.id];
-  // Hráč z původního kádru: odečteme celkový pohyb ceny od začátku sezóny.
-  const start = p.now_cost - (p.cost_change_start || 0);
-  return Number.isFinite(start) && start > 0 ? start : null;
-}
-
-/* Pravidlo FPL: ze zisku dostaneš zpátky polovinu, zaokrouhlenou dolů
-   na desetinu milionu. Ztráta se naopak promítne celá. */
-function sellFromBuy(nowCost, buy){
-  if(!Number.isFinite(buy)) return nowCost;
-  if(nowCost <= buy) return nowCost;
-  return buy + Math.floor((nowCost - buy) / 2);
-}
-
-/* Ruční přepis prodejní ceny zmizel spolu se záložkou Transfery, kde
-   se editoval. Nákupní ceny z transfers/ jsou přesnější než cokoli,
-   co by člověk psal ručně, takže tu nic nechybí — jen se přestal číst
-   starý localStorage, kde komu zůstaly staré přepisy. */
-function sellPrice(p){
-  return sellFromBuy(p.now_cost, buyCost(p)) / 10;
-}
-
-/* Odkud číslo je: 'manual' | 'api' | 'start'. Řídí popisek v UI —
-   „upraveno“ a „spočítáno z nákupní ceny“ nejsou totéž. */
-function sellSource(p){
-  const v = parseFloat(loadSell()[p.id]);
-  if(Number.isFinite(v) && v > 0) return 'manual';
-  if(BUY_COST && Number.isFinite(BUY_COST[p.id])) return 'api';
-  return 'start';
-}
-function isOverridden(p){ return sellSource(p) === 'manual'; }
-function bankValue(){
-  const v = parseFloat(localStorage.getItem(BANK_KEY()));
-  return Number.isFinite(v) && v >= 0 ? v : (TR_STATE ? TR_STATE.apiBank : 0);
-}
-
-
-/* ------------------------------------------------------------
-   Hledání náhrad.
-
-   Filtry se aplikují v pořadí od nejtvrdšího po nejměkčí a průběžně se
-   počítá, kolik hráčů kde vypadlo. Když nezbude nikdo, víme přesně proč
-   a můžeme to říct — dřív appka v každém případě tvrdila „nevejde se do
-   rozpočtu“, i když skutečnou příčinou byl minutový práh.
-
-   Minutový práh se navíc škáluje podle toho, kolik kol se odehrálo.
-   Pevných 180 minut znamenalo, že v prvních dvou kolech neprošel nikdo
-   a záložka byla k ničemu přesně v době, kdy se transfery řeší nejvíc.
-   ------------------------------------------------------------ */
-function findReplacements(it, budget, owned, clubCount, startGw, byId){
-  const rounds = roundsPlayed();
-
-  // Po dvou kolech chceme 40 minut, po devíti 180. Nikdy víc než 180.
-  // Pevných 180 znamenalo, že na začátku sezóny neprošel nikdo.
-  const minMinutes = Math.min(180, Math.max(0, rounds - 1) * 20);
-
-  /* Pořadí návrhů určuje jedno jediné číslo: kolik procent hráčů v FPL
-     daného hráče vlastní. Žádná projekce, žádná forma, žádný rozpis.
-
-     Je to vědomá volba, ne zjednodušení z lenosti. Vysoké vlastnictví
-     znamená, že se od zbytku pole neodchýlíš — když ten hráč zaboduje,
-     zabodujou i ostatní a ty neztrácíš. Opačná strana mince: takhle se
-     náskok nezískává, jen nepropadá. Statistiky zůstávají dostupné pod
-     tlačítkem, ale do pořadí nemluví. */
-  const enrich = r => ({
-    ...r,
-    f3: nextFixtures(r.p.team, startGw, 3),
-    owned: parseFloat(r.p.selected_by_percent) || 0,
-    lastWeek: r.p.event_points,
-  });
-
-  const steps = [
-    ['stejná pozice',        r => r.p.element_type === it.p.element_type],
-    ['nemáš ho v kádru',     r => !owned.has(r.p.id)],
-    ['limit 3 z klubu',      r => (clubCount[r.p.team] || 0) < 3],
-    ['zdravý a k dispozici', r => r.chance >= 75 && r.p.status === 'a'],
-    ['odehrané minuty',      r => r.p.minutes >= minMinutes],
-    ['vejde se do rozpočtu', r => r.price <= budget + 0.001],
-  ];
-
-  // Počty po každém kroku — bez nich se nedá poznat, který filtr škrtí.
-  const counts = [];
-  let pool = PLAYERS;
-
-  for(const [label, fn] of steps){
-    pool = pool.filter(fn);
-    counts.push({label, left: pool.length});
-  }
-
-  const cands = pool.map(enrich)
-    .sort((a, b) => b.owned - a.owned)
-    .slice(0, 5);
-
-  // Kdo prošel vším kromě ceny — a o kolik peněz jde. Tohle je odpověď
-  // na otázku „a kdybych sehnal ještě půl milionu?“, kterou si člověk
-  // v tuhle chvíli stejně položí.
-  const affordable = steps.slice(0, -1)
-    .reduce((acc, [, fn]) => acc.filter(fn), PLAYERS);
-
-  const nearMiss = affordable
-    .filter(r => r.price > budget + 0.001)
-    .map(enrich)
-    .sort((a, b) => b.owned - a.owned)
-    .slice(0, 3)
-    .map(r => ({...r, missing: r.price - budget}));
-
-  const cheapest = affordable.length
-    ? Math.min(...affordable.map(r => r.price)) : null;
-
-  return {
-    cands, pool, counts, nearMiss, cheapest, minMinutes,
-    diag: cands.length ? '' : explainNoCandidates(
-      {counts, cheapest, nearMiss, budget, minMinutes, pos: it.p.element_type}),
-  };
-}
-
-/* Když nic nenajdeme, musí být z výstupu jasné proč — jinak si uživatel
-   domyslí špatnou příčinu a jde uvolňovat peníze, které nejsou problém.
-   Dřív appka v každém případě tvrdila „nevejde se do rozpočtu“. */
-function explainNoCandidates({counts, cheapest, nearMiss, budget, minMinutes, pos}){
-  // První krok, po kterém nezbyl nikdo.
-  const dead = counts.find(c => c.left === 0);
-
-  let lead;
-  if(!dead){
-    lead = 'Něco je špatně v samotném hledání — filtry prošly, ale seznam je prázdný.';
-  } else if(dead.label === 'vejde se do rozpočtu'){
-    lead = cheapest !== null
-      ? `Nejlevnější použitelný ${POS[pos]} stojí <b>${cheapest.toFixed(1)}m</b>,
-         ty máš <b>${budget.toFixed(1)}m</b>. Chybí ti
-         <b>${(cheapest - budget).toFixed(1)}m</b>.`
-      : `Za ${budget.toFixed(1)}m na téhle pozici nikdo není.`;
-  } else if(dead.label === 'odehrané minuty'){
-    lead = `Kandidáti do rozpočtu existují, ale nikdo z nich zatím neodehrál
-      ${minMinutes} minut.`;
-  } else if(dead.label === 'zdravý a k dispozici'){
-    lead = 'Do rozpočtu se vejdou jen hráči, kteří jsou zranění nebo pod otazníkem.';
-  } else if(dead.label === 'limit 3 z klubu'){
-    lead = 'Zbývající hráči jsou z klubů, odkud už máš tři — víc FPL nedovolí.';
-  } else {
-    lead = `Filtr „${dead.label}“ nenechal nikoho.`;
-  }
-
-  const near = nearMiss.length
-    ? `<div class="near">
-        <b>Kdybys uvolnil víc peněz:</b>
-        ${nearMiss.map(r => `<span class="chip">
-          <b>${esc(r.p.web_name)}</b>
-          <span class="ct">${esc(r.team.short_name)} · ${r.price.toFixed(1)}m
-            · vlastní ${r.owned.toFixed(1)} % · chybí ${r.missing.toFixed(1)}m</span></span>`).join('')}
-      </div>` : '';
-
-  const table = `<details class="why">
-    <summary>Proč nic nenašlo</summary>
-    <table class="funnel"><tbody>
-      ${counts.map(c => `<tr><td>${esc(c.label)}</td>
-        <td class="n ${c.left ? '' : 'al'}">${c.left}</td></tr>`).join('')}
-    </tbody></table>
-    <p class="note">Kolik hráčů zbylo po každém kroku. Nula ukazuje, kde se to zaseklo.</p>
-  </details>`;
-
-  return `<p class="note">${lead}</p>${near}${table}`;
-}
-
-function renderTransfers(){
-  const {picks, summaries, startGw} = TR_STATE;
-  const bank = bankValue();
-  const els = Object.fromEntries(BOOT.elements.map(p => [p.id, p]));
-  const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
-  const owned = new Set(picks.picks.map(pk => pk.element));
-  const byId = Object.fromEntries(PLAYERS.map(r => [r.p.id, r]));
-
-  const issues = [];
-
-  picks.picks.forEach((pk, i) => {
-    const p = els[pk.element];
-    if(!p) return;
-    const hist = summaries[i];
-    const fx = nextFixtures(p.team, startGw, 3);
-    const chance = p.chance_of_playing_next_round === null ? 100 : p.chance_of_playing_next_round;
-    const reasons = [];
-    let prio = 0;
-
-    // --- priorita 1: dostupnost ---
-    if(p.status === 's'){ reasons.push('Suspendovaný'); prio = 1; }
-    else if(p.status === 'i'){ reasons.push('Zraněný'); prio = 1; }
-    else if(p.status === 'u' || p.status === 'n'){ reasons.push('Nedostupný'); prio = 1; }
-    else if(chance < 100){
-      reasons.push('Šance nastoupit jen ' + chance + ' %');
-      prio = chance <= 50 ? 1 : Math.max(prio, 2);
-    }
-
-    /* --- program ---
-
-       Dvě věci, na kterých staré pravidlo padalo:
-
-       1) Používalo statické FDR od FPL, které je symetrické — Arsenal
-          proti Chelsea má stejnou čtyřku jako Burnley proti Chelsea.
-          Pro Arsenal je to ale vyrovnaný zápas. `ownFdr()` počítá sílu
-          obou týmů, takže hráč silného klubu už není trestaný za to,
-          že hraje proti jiným silným klubům.
-
-       2) Práh „dva ze tří těžkých“ flagoval prakticky každého hráče
-          špičkového týmu. Teď rozhoduje průměr přes celý blok, ne počet
-          jednotlivých zápasů — a musí být opravdu zlý. */
-    const withOwn = fx.map(f => ({...f, od: ownFdr(p.team, f.opp, f.home, f.d)}));
-    const avgOwn = withOwn.length
-      ? withOwn.reduce((a2, f) => a2 + f.od, 0) / withOwn.length : 3;
-
-    const fxText = withOwn.map(f =>
-      (teams[f.opp] ? teams[f.opp].short_name : '?')
-      + (f.home ? ' (D)' : ' (V)') + ' ' + f.od.toFixed(1)).join(', ');
-
-    /* Hráč, který boduje, se neprodává kvůli rozpisu. Forma i body na
-       zápas jsou naměřená čísla od FPL — když jsou dobrá, program musí
-       být opravdu brutální, aby to přebilo. */
-    const form = parseFloat(p.form) || 0;
-    const ppg = parseFloat(p.points_per_game) || 0;
-    const performing = form >= 4 || ppg >= 4.5;
-
-    if(withOwn.length === 3 && avgOwn >= 4.3 && !performing){
-      reasons.push('Velmi těžký blok: ' + fxText);
-      prio = Math.max(prio, 1);
-    } else if(withOwn.length === 3 && avgOwn >= 3.9 && !performing){
-      reasons.push('Náročný program: ' + fxText);
-      prio = Math.max(prio, 2);
-    }
-
-    /* --- bodová sucha ---
-       Sucho počítáme jen ze zápasů, kde hráč reálně hrál. Tři pětiminutová
-       střídání nejsou bodová krize, ale nedostatek příležitosti. */
-    const played = hist.filter(h => h.minutes >= 60);
-    let dry = 0;
-    for(let k = played.length - 1; k >= 0; k--){
-      if(played[k].total_points <= 3) dry++; else break;
-    }
-    if(dry >= 3 && !performing){
-      const pts = played.slice(-dry).map(h => h.total_points).join(', ');
-      reasons.push('Poslední ' + dry + ' zápasy pod 3 body (' + pts + ')');
-      prio = prio === 1 ? 1 : 2;
-    }
-
-    if(prio) issues.push({p, pk, prio, reasons, fx: withOwn, dry, chance, avgOwn});
-  });
-
-  if(!issues.length){
-    $('trout').innerHTML = `<div class="ok-box">
-      <b>Sestava je v pořádku.</b>
-      <p class="note">Nikdo není zraněný ani suspendovaný, nikoho nečeká vyloženě zlý
-      blok zápasů a nikdo netrpí bodovým suchem. Hráči, kteří bodují, se neflagují —
-      dobrá forma přebije i těžký program. V bance máš ${bank.toFixed(1)}m.</p>
-    </div>
-    <div class="diffs">${buildDifferentials()}</div>`;
-    return;
-  }
-
-  issues.sort((a, b) => a.prio - b.prio || b.dry - a.dry);
-
-  const blocks = issues.map(it => {
-    const sell = sellPrice(it.p);
-    const budget = bank + sell;
-    const edited = isOverridden(it.p);
-
-    // FPL dovoluje nejvýš tři hráče z jednoho klubu. Po odchodu tohohle
-    // hráče se počty přepočítají — jinak by appka klidně navrhla čtvrtého
-    // Arsenalisty a transfer by nešel provést.
-    const clubCount = {};
-    picks.picks.forEach(x => {
-      if(x.element === it.p.id) return;
-      const q = els[x.element];
-      if(q) clubCount[q.team] = (clubCount[q.team] || 0) + 1;
-    });
-
-    const {cands, diag} = findReplacements(it, budget, owned, clubCount, startGw, byId);
-
-    const candHtml = cands.length ? `
-      <div class="candhead">
-        <span>Hráč</span><span>Tým</span><span class="n">Cena</span>
-        <span class="n">Vlastní</span><span class="n">Body min. kolo</span>
-        <span class="n">Minuty</span><span></span>
-      </div>
-      ${cands.map(c => `<div class="cand2">
-        <span class="nm"><b>${esc(c.p.web_name)}</b></span>
-        <span class="tm">${esc(c.team.short_name)}</span>
-        <span class="n" data-l="Cena">${c.price.toFixed(1)}m</span>
-        <span class="n own" data-l="Vlastní"><b>${c.owned.toFixed(1)}&nbsp;%</b></span>
-        <span class="n" data-l="Min. kolo">${c.lastWeek} b</span>
-        <span class="n" data-l="Minut">${c.p.minutes}</span>
-        <span class="n">
-          <button class="info" type="button" aria-expanded="false"
-                  data-stats="${it.p.id}-${c.p.id}"
-                  aria-label="Statistiky hráče ${esc(c.p.web_name)}">i</button>
-        </span>
-      </div>
-      <div class="statpop" id="stats-${it.p.id}-${c.p.id}" hidden>
-        <h5>${esc(c.p.web_name)} · ${esc(c.team.short_name)} · ${POS[c.p.element_type]}</h5>
-        ${statGrid(c.p)}
-        <p class="note">Program: ${c.f3.map(f =>
-          (teams[f.opp] ? esc(teams[f.opp].short_name) : '?') + ' ' + f.d).join(' · ') || '–'}
-          · projekce FPL ${c.ep === null ? '–' : c.ep.toFixed(1)}</p>
-      </div>`).join('')}
-      <p class="note">Seřazeno <b>výhradně podle vlastnictví</b> — kolik procent
-      hráčů FPL je má v týmu. Statistiky jsou pod tlačítkem <b>i</b> a do pořadí
-      nemluví. Vysoké vlastnictví tě drží s polem; náskok se takhle nezískává.</p>`
-      : diag;
-
-    /* Karta je složená: v zavřeném stavu jen jméno, zařazení a důvod.
-       Statistiky a návrhy náhrad se rozbalí až na vyžádání — patnáct
-       rozbalených karet pod sebou nikdo nepřečte. */
-    const mineEp = byId[it.p.id] ? byId[it.p.id].ep : null;
-
-    return `<details class="issue p${it.prio}">
-      <summary>
-        <div class="hdr">
-          <b>${esc(it.p.web_name)}</b>
-          <span class="tag">${esc(teams[it.p.team].short_name)} · ${POS[it.p.element_type]}
-            · ${(it.p.now_cost / 10).toFixed(1)}m</span>
-          <span class="tag">${it.prio === 1 ? 'Priorita 1' : 'Priorita 2'}</span>
-          <span class="tag ep">xP FPL ${mineEp === null ? '–' : mineEp.toFixed(1)}</span>
-        </div>
-        <p class="why">${it.reasons.map(r => '• ' + esc(r)).join('<br>')}</p>
-        <span class="more">Rozbalit statistiky a náhrady</span>
-      </summary>
-
-      <div class="issue-body">
-        <div class="candhead">
-          <span>Hráč</span><span>Tým</span><span class="n">Cena</span>
-          <span class="n">Vlastní</span><span class="n">Body min. kolo</span>
-          <span class="n">Minuty</span><span></span>
-        </div>
-        <div class="cand2 own-row">
-          <span class="nm"><b>${esc(it.p.web_name)}</b></span>
-          <span class="tm">${esc(teams[it.p.team].short_name)}</span>
-          <span class="n" data-l="Cena">${(it.p.now_cost / 10).toFixed(1)}m</span>
-          <span class="n own" data-l="Vlastní"><b>${parseFloat(it.p.selected_by_percent).toFixed(1)}&nbsp;%</b></span>
-          <span class="n" data-l="Min. kolo">${it.p.event_points} b</span>
-          <span class="n" data-l="Minut">${it.p.minutes}</span>
-          <span class="n">
-            <button class="info" type="button" aria-expanded="false"
-                    data-stats="self-${it.p.id}"
-                    aria-label="Statistiky hráče ${esc(it.p.web_name)}">i</button>
-          </span>
-        </div>
-        <div class="statpop" id="stats-self-${it.p.id}" hidden>
-          <h5>${esc(it.p.web_name)} · ${POS[it.p.element_type]}</h5>
-          ${statGrid(it.p)}
-        </div>
-
-        <div class="budget">
-          <label>Prodejní cena
-            <input class="pin" type="number" step="0.1" min="0" max="20"
-                   data-pid="${it.p.id}" value="${sell.toFixed(1)}">m
-          </label>
-          + banka ${bank.toFixed(1)}m = <b>${budget.toFixed(1)}m</b>
-          ${{manual: '<span class="edited">upraveno ručně</span>',
-             api:    '<span class="est">z nákupní ceny ' +
-                     (buyCost(it.p) / 10).toFixed(1) + 'm</span>',
-             start:  '<span class="est">z ceny na startu sezóny</span>'
-            }[sellSource(it.p)]}
-        </div>
-
-        <h4>Možné náhrady</h4>
-        ${candHtml}
-      </div>
-    </details>`;
-  });
-
-  const p1 = issues.filter(i => i.prio === 1).length;
-  const bankEdited = Number.isFinite(parseFloat(localStorage.getItem(BANK_KEY())));
-
-  $('trout').innerHTML = `
-    <h2>Nalezeno ${issues.length} problémů · ${p1} akutních${info(`${BUY_COST
-      ? 'Prodejní ceny počítám z <b>tvých skutečných nákupních cen</b> (endpoint '
-        + 'transfers/). Ze zisku ti FPL vrací polovinu zaokrouhlenou dolů — to je '
-        + 'v čísle zahrnuté. Přepsat je můžeš, ale většinou nebudeš muset.'
-      : '<b>Historii přestupů se nepodařilo načíst</b>, takže počítám z ceny na '
-        + 'začátku sezóny. U hráčů koupených během sezóny to bude vedle — přepiš je '
-        + 'ručně.'}`)}</h2>
-    <div class="budget" style="border-top:0;padding-top:0">
-      <label>V bance
-        <input class="pin" id="bankin" type="number" step="0.1" min="0" max="100"
-               value="${bank.toFixed(1)}">m
-      </label>
-      ${bankEdited ? `<span class="edited">upraveno</span>
-        <button class="lnk" id="bankreset">vrátit ${TR_STATE.apiBank.toFixed(1)}m z FPL</button>` : ''}
-    </div>
-    
-    ${blocks.join('')}
-    <button class="lnk" id="sellreset" style="margin-top:14px">Zahodit ruční přepisy</button>
-    ${storageNote('Ruční přepis cen a banky')}
-    <div class="diffs">${buildDifferentials()}</div>`;
-
-  /* Tlačítko „i“ místo hover tooltipu — na dotykovém displeji se hover
-     nedá vyvolat a tooltip by tam byl nedostupný. */
-  $('trout').querySelectorAll('button.info').forEach(btn => {
-    btn.addEventListener('click', ev => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const box = $('stats-' + btn.dataset.stats);
-      if(!box) return;
-      const show = box.hidden;
-      box.hidden = !show;
-      btn.setAttribute('aria-expanded', String(show));
-      btn.classList.toggle('on', show);
-    });
-  });
-
-  // prepocet po uprave — bez novych dotazu na API
-  $('trout').querySelectorAll('input.pin[data-pid]').forEach(inp => {
-    inp.addEventListener('change', () => {
-      const o = loadSell();
-      const v = parseFloat(inp.value);
-      if(Number.isFinite(v) && v > 0) o[inp.dataset.pid] = v;
-      else delete o[inp.dataset.pid];
-      saveSell(o);
-      renderTransfers();
-    });
-  });
-
-  $('bankin').addEventListener('change', () => {
-    const v = parseFloat($('bankin').value);
-    if(Number.isFinite(v) && v >= 0) lsSet(BANK_KEY(), String(v));
-    else lsDel(BANK_KEY());
-    renderTransfers();
-  });
-
-  const br = $('bankreset');
-  if(br) br.addEventListener('click', () => {
-    lsDel(BANK_KEY());
-    renderTransfers();
-  });
-
-  $('sellreset').addEventListener('click', () => {
-    lsDel(SELL_KEY());
-    lsDel(BANK_KEY());
-    renderTransfers();
-  });
-}
-
-$('trgo').addEventListener('click', async () => {
-  $('trgo').disabled = true;
-  await analyzeTransfers();
-  $('trgo').disabled = false;
-});
 
 /* ============ HUB LIGY ============ */
 let HUB = null;
-let LEAGUE_OWN = null;   // {owners: {playerId: [jmena]}, n} — plni renderLeague
+let LEAGUE_OWN = null;   // {owners: {playerId: [namesOf]}, n} — plni renderLeague
 
 async function loadHub(){
-  $('hubmsg').textContent = 'Načítám ligu…';
+  $('hubmsg').textContent = 'Loading league…';
   $('hubout').innerHTML = '';
   try{
     if(!BOOT){ [BOOT, FIX] = await Promise.all([api('bootstrap-static/'), api('fixtures/')]); }
     if(!PLAYERS) PLAYERS = playerRows();
 
     const lid = CONFIG.leagueId || localStorage.getItem('fpl_league');
-    if(!lid){ $('hubmsg').textContent = 'Nejdřív si načti ligu v záložce Miniliga.'; return; }
+    if(!lid){ $('hubmsg').textContent = 'Load the league in the Mini-league tab first.'; return; }
 
     const cur = BOOT.events.find(e => e.is_current);
-    if(!cur){ $('hubmsg').textContent = 'Sezóna ještě nezačala.'; return; }
+    if(!cur){ $('hubmsg').textContent = 'The season has not started yet.'; return; }
 
     const {league, members} = await fetchStandings(lid,
-      n => { $('hubmsg').textContent = 'Načítám pořadí… ' + n + ' týmů'; });
-    if(!members.length){ $('hubmsg').textContent = 'Liga nemá členy.'; return; }
+      n => { $('hubmsg').textContent = 'Loading standings… ' + n + ' teams'; });
+    if(!members.length){ $('hubmsg').textContent = 'The league has no members.'; return; }
 
-    // cached() znamená, že po načtení Miniligy je tohle skoro zadarmo —
-    // jsou to přesně tytéž adresy.
-    const hists = await pooled(members, m => cached('entry/' + m.entry + '/history/'),
-      5, (d, t) => { $('hubmsg').textContent = `Načítám historii… ${d}/${t}`; });
+    /* History is one request per member, so it is the most expensive part
+       of loading the hub. The archive can assemble it from finished
+       gameweeks — when it has them all, that saves one request per member. */
+    let hists = null;
+    try{ hists = await snapHists(members, cur.id); }catch(e){}
+
+    if(!hists){
+      // cached() means that after the Mini-league tab this is nearly free —
+      // they are exactly the same URLs.
+      hists = await pooled(members, m => cached('entry/' + m.entry + '/history/'),
+        5, (d, t) => { $('hubmsg').textContent = `Loading history… ${d}/${t}`; });
+    }
 
     const picks = await pooled(members, m => cached('entry/' + m.entry + '/event/' + cur.id + '/picks/'),
-      5, (d, t) => { $('hubmsg').textContent = `Načítám sestavy… ${d}/${t}`; });
+      5, (d, t) => { $('hubmsg').textContent = `Loading squads… ${d}/${t}`; });
 
     HUB = {st: {league}, members, hists, picks, cur};
     renderHub();
@@ -1142,10 +603,10 @@ async function loadHub(){
 }
 
 // poradi v lize po jednotlivych kolech, z kumulativnich bodu
-/* Body po kolech, indexované podle čísla kola — ne podle pozice v poli.
+/* Points per gameweek, indexed by gameweek number — not by position in
 
-   Manažer, který do FPL vstoupil až v GW5, má current[0].round === 5.
-   Čtení přes current[g] mu proto posunulo celou křivku o čtyři kola doleva. */
+   the array. A manager who joined FPL in GW5 has current[0].round === 5,
+   so reading current[g] shifted his whole curve four gameweeks left. */
 function pointsByRound(h){
   const map = new Map();
   if(h && h.current) for(const ev of h.current) map.set(ev.round, ev);
@@ -1167,31 +628,31 @@ function leagueRanks(members, hists){
   return {ranks, gws};
 }
 
-/* Stav kola. FPL přepne `is_current` hned po deadlinu, takže „aktuální
-   kolo“ neznamená „odehrané kolo“ — mezi tím je celý víkend, během
-   kterého se čísla mění po každém zápase.
+/* Gameweek phase. FPL flips `is_current` right after the deadline, so
+   "current gameweek" does not mean "played gameweek" — a whole weekend
+   sits in between, during which the numbers change after every match.
 
-   Rozlišujeme tři fáze, protože každá znamená jinou míru důvěry:
-     · running   — kolo běží, body se ještě sčítají
-     · unchecked — zápasy dohrané, ale bonusy se dopočítávají
-     · final     — data_checked, čísla už se nezmění
+   Three phases, because each means a different level of trust:
+     · running   — the gameweek is live, points are still accumulating
+     · unchecked — matches are over, but bonus is still being computed
+     · final     — data_checked, the numbers will not change
 
-   `data_checked` je jediné pole, které FPL nastaví až po připsání
-   bonusů. `finished` přijde dřív, takže na definitivnost nestačí.
+   `data_checked` is the only field FPL sets after bonus has been added.
+   `finished` arrives earlier, so it is not enough for finality.
 
-   Jenže obojí je na úrovni celého kola a FPL je přepíná se zpožděním —
-   klidně půl dne po posledním zápase, někdy až v úterý ráno. Do té doby
-   appka tvrdila „kolo běží“, i když se dávno dohrálo a bonusy byly
-   připsané. Proto se ptáme rovnou rozpisu, který se aktualizuje hned:
+   But both are at whole-gameweek level and FPL flips them with a delay —
+   easily half a day after the last match, sometimes not until Tuesday
+   morning. Until then the app claimed "gameweek live" long after it had
+   finished and bonus had been added. So we ask the fixtures instead,
 
-     · některý zápas ještě neskončil          → running
-     · všechny dohrané, bonusy nejsou v datech → unchecked
-     · všechny dohrané a bonusy zapsané        → final
+     · some match has not finished           → running
+     · all finished, bonus not in the data   → unchecked
+     · all finished and bonus written        → final
 
-   Bonus je ve `stats` každého zápasu položka `bonus`; FPL ji doplní
-   ve chvíli, kdy jsou body definitivní. To je přesně ten okamžik, po
-   kterém má smysl novinky pustit — nezávisle na tom, kdy se FPL uráčí
-   překlopit `data_checked`. */
+   Bonus is an item called `bonus` in each fixture's `stats`; FPL fills it
+   in the moment the points are final. That is exactly the moment stories
+   should be released — regardless of when FPL gets round to flipping
+   `data_checked`. */
 function fixtureBonusDone(f){
   const s = (f.stats || []).find(x => x.identifier === 'bonus');
   if(!s) return false;
@@ -1202,8 +663,8 @@ function gwPhaseFromFixtures(gwId){
   if(!Array.isArray(FIX)) return null;
   const fs = FIX.filter(f => f.event === gwId);
   if(!fs.length) return null;
-  // Rozpis smí fázi jen posunout dopředu, nikdy zpátky: když v něm zápasy
-  // dohrané nejsou, rozhodnou dál příznaky kola.
+  // Fixtures may only move the phase forward, never back: when the matches
+  // are not finished there, the gameweek flags decide.
   if(!fs.every(f => f.finished || f.finished_provisional)) return null;
   return fs.every(f => f.finished && fixtureBonusDone(f)) ? 'final' : 'unchecked';
 }
@@ -1218,9 +679,9 @@ function gwPhase(gwId){
   return 'running';
 }
 
-/* Kola, která má smysl nabídnout k prohlížení: všechna zahájená,
-   od prvního po aktuální. Historie se bere z `hists`, takže starší
-   kola nestojí ani jeden dotaz navíc — kromě kapitánů, viz níže. */
+/* The gameweeks worth offering for browsing: every one that has started,
+   from the first to the current. History comes from `hists`, so older
+   gameweeks cost no extra request — except captains, see below. */
 function newsGws(){
   const cur = HUB.cur;
   const out = [];
@@ -1231,42 +692,43 @@ function newsGws(){
   return out;
 }
 
-/* Novinky za konkrétní kolo.
+/* Stories for a specific gameweek.
 
-   `picksFor` jsou sestavy toho kola. Pro aktuální kolo je má HUB
-   načtené; pro starší se dotahují na kliknutí (viz loadNewsGw), aby
-   otevření hubu nestálo dotaz za každé kolo sezóny. Když nejsou,
-   kapitánská novinka se prostě vynechá — je to jediná, která je
-   potřebuje. */
-/* Řádky kola pro každého člena ligy.
+   `picksFor` are that gameweek's picks. For the current gameweek HUB has
+   them loaded; for older ones they are fetched on click (see loadNewsGw),
+   so opening the hub does not cost a request for every gameweek of the
+   season. When they are missing, the captain story is simply skipped — it
+   is the only one that needs them. */
+/* Gameweek rows for every league member.
 
-   Primární zdroj je historie týmu (`entry/{id}/history/`). Ta se ale
-   plní se zpožděním — po prvním kole sezóny tam řádek chvíli není
-   vůbec, takže hub hlásil „za tohle kolo zatím nejsou data“ i ve
-   chvíli, kdy se dávno dohrálo.
+   The primary source is the team history (`entry/{id}/history/`). But that
+   fills in with a delay — after the first gameweek of the season the row
+   is missing for a while, so the hub reported "no data for this gameweek
+   yet" even long after it had been played.
 
-   Pořadí ligy přitom nese `event_total` a je živé: aktualizuje se
-   průběžně během kola. Použijeme ho jako záložní zdroj pro aktuální
-   kolo. Průběžný řádek je označený (`zeStandings`), protože nese jen
-   body a součet — ne přestupy ani lavičku, takže zprávy, které je
-   potřebují, se u něj vynechají místo aby hlásily nuly. */
+   The league standings carry `event_total` and are live: they update
+   during the gameweek. We use them as a fallback source for the current
+   gameweek. A live row is flagged (`fromStandings`), because it carries
+   only points and a total — not transfers or bench — so stories that need
+   those are skipped for it instead of reporting zeroes. */
 function gwRows(gwId){
   const {members, hists} = HUB;
 
-  /* Třetí zdroj: sestavy a body hráčů toho kola.
+  /* A third source: that gameweek's picks and player points.
 
-     Historie chybí nejen u běžícího kola — na začátku sezóny nemá FPL
-     řádek ani pro dohrané GW1, a pořadí ligy zná jen kolo aktuální.
-     Archiv starších kol pak hlásil „za tohle kolo zatím nejsou data“,
-     přestože sestavy i body appka kvůli cenám stejně stahuje. Když
-     jsou, spočítá se kolo z nich; jinak se nedělá nic. */
+     History is missing not only for a live gameweek — at the start of the
+     season FPL has no row even for a finished GW1, and the standings only
+     know the current gameweek. The archive of older gameweeks then said
+     "no data for this gameweek yet" even though the app downloads picks
+     and points for prices anyway. When they are there, the gameweek is
+     computed from them; otherwise nothing is done. */
   const picks = NEWS_PICKS.get(gwId);
   const live = NEWS_LIVE.get(gwId);
-  const zeSestav = (i) => {
+  const fromPicks = (i) => {
     const pk = picks && picks[i];
     if(!pk || !pk.picks || !live) return null;
     const L = resolveLineup(pk, liveStats(live), gwId);
-    return {round: gwId, points: L.total, total_points: null, zeSestav: true};
+    return {round: gwId, points: L.total, total_points: null, fromPicks: true};
   };
 
   return members.map((m, i) => {
@@ -1274,9 +736,9 @@ function gwRows(gwId){
     let ev = h && h.current.find(x => x.round === gwId);
     if(!ev && gwId === HUB.cur.id && Number.isFinite(m.event_total)){
       ev = {round: gwId, points: m.event_total, total_points: m.total,
-            zeStandings: true};
+            fromStandings: true};
     }
-    if(!ev) ev = zeSestav(i);
+    if(!ev) ev = fromPicks(i);
     return {m, i, ev};
   }).filter(x => x.ev);
 }
@@ -1298,22 +760,22 @@ function buildNews(gwId, picksFor){
   const gap = second ? top.ev.points - second.ev.points : 0;
 
   news.push({
-    cls: 'good', kicker: 'Kolo ' + cur.id,
-    head: esc(top.m.player_name) + ' vyhrál kolo s ' + top.ev.points + ' body',
+    cls: 'good', kicker: 'Gameweek ' + cur.id,
+    head: esc(top.m.player_name) + ' won the gameweek with ' + top.ev.points + ' points',
     body: second
       ? (gap >= 15
-          ? `Náskok <b>${gap} bodů</b> na druhého — to už není náhoda, to je jiná liga.`
+          ? `A <b>${gap} point</b> lead over second — that is not luck, that is another league.`
           : gap === 0
-            ? `O první místo se dělí s <b>${esc(second.m.player_name)}</b>.`
-            : `Druhý <b>${esc(second.m.player_name)}</b> zaostal o ${gap} bodů.`)
+            ? `He shares first place with <b>${esc(second.m.player_name)}</b>.`
+            : `Second-placed <b>${esc(second.m.player_name)}</b> was ${gap} points behind.`)
       : '',
   });
 
   if(bottom !== top){
     news.push({
-      cls: 'bad', kicker: 'Průšvih kola',
-      head: esc(bottom.m.player_name) + ' zvládl jen ' + bottom.ev.points + ' bodů',
-      body: `O <b>${top.ev.points - bottom.ev.points}</b> méně než vítěz kola.`,
+      cls: 'bad', kicker: 'Gameweek disaster',
+      head: esc(bottom.m.player_name) + ' managed only ' + bottom.ev.points + ' points',
+      body: `<b>${top.ev.points - bottom.ev.points}</b> fewer than the gameweek winner.`,
     });
   }
 
@@ -1333,9 +795,9 @@ function buildNews(gwId, picksFor){
 
     const rebels = caps.filter(c => c.pid !== popId);
     if(rebels.length && rebels.length <= Math.ceil(caps.length / 2)){
-      /* Body rebela se berou ze stejné mapy jako zbytek novinek — tedy
-         i z živého pořadí. Dřív se sahalo přímo do historie, takže při
-         běžícím kole novinka tiše zmizela, i když všechno ostatní šlo. */
+      /* The maverick's points come from the same map as the rest of the
+         stories — including live standings. This used to read history
+         directly, so during a live gameweek the story quietly disappeared. */
       const evPodleTymu = new Map(gw.map(x => [x.m.entry, x.ev]));
       const best = rebels
         .map(r => ({...r, ev: evPodleTymu.get(r.m.entry)}))
@@ -1343,100 +805,100 @@ function buildNews(gwId, picksFor){
         .sort((a, b) => b.ev.points - a.ev.points)[0];
       if(best){
         news.push({
-          cls: 'warn', kicker: 'Kapitánská volba',
-          head: `${popular[1]} z ${caps.length} manažerů vsadilo na ${esc(els[popId] ? els[popId].web_name : '?')}`,
-          body: `Proti proudu šel <b>${esc(best.m.player_name)}</b> s kapitánem
-            <b>${esc(els[best.pid] ? els[best.pid].web_name : '?')}</b> a udělal ${best.ev.points} bodů.`,
+          cls: 'warn', kicker: 'Captain choice',
+          head: `${popular[1]} of ${caps.length} managers backed ${esc(els[popId] ? els[popId].web_name : '?')}`,
+          body: `Going against the grain, <b>${esc(best.m.player_name)}</b> captained
+            <b>${esc(els[best.pid] ? els[best.pid].web_name : '?')}</b> and scored ${best.ev.points} points.`,
         });
       }
     }
   }
 
   // dan za transfery
-  const taxed = gw.filter(x => !x.ev.zeStandings && x.ev.event_transfers_cost > 0)
+  const taxed = gw.filter(x => !x.ev.fromStandings && x.ev.event_transfers_cost > 0)
     .sort((a, b) => b.ev.event_transfers_cost - a.ev.event_transfers_cost);
   if(taxed.length){
     const t = taxed[0];
     news.push({
-      cls: 'warn', kicker: 'Netrpělivost',
-      head: `${esc(t.m.player_name)} zaplatil ${t.ev.event_transfers_cost} bodů za transfery`,
-      body: `Udělal <b>${t.ev.event_transfers}</b> přesunů a skončil na ${t.ev.points} bodech.
-        Bez trestu by měl ${t.ev.points + t.ev.event_transfers_cost}.`,
+      cls: 'warn', kicker: 'Impatience',
+      head: `${esc(t.m.player_name)} paid ${t.ev.event_transfers_cost} points for transfers`,
+      body: `He made <b>${t.ev.event_transfers}</b> moves and finished on ${t.ev.points} points.
+        Without the hit it would have been ${t.ev.points + t.ev.event_transfers_cost}.`,
     });
   }
 
   // lavicka
-  const bench = gw.filter(x => !x.ev.zeStandings)
+  const bench = gw.filter(x => !x.ev.fromStandings)
     .sort((a, b) => b.ev.points_on_bench - a.ev.points_on_bench)[0];
   if(bench && bench.ev.points_on_bench >= 8){
     news.push({
-      cls: 'bad', kicker: 'Lavička hanby',
-      head: `${esc(bench.m.player_name)} nechal ${bench.ev.points_on_bench} bodů na lavičce`,
-      body: 'Body, které měl v týmu a nedostal je.',
+      cls: 'bad', kicker: 'Bench of shame',
+      head: `${esc(bench.m.player_name)} left ${bench.ev.points_on_bench} points on the bench`,
+      body: 'Points he owned and did not get.',
     });
   }
 
-  /* Průměr kola. Vystačí s body, takže funguje i z živého pořadí —
-     a v prvním kole sezóny, kdy ještě není s čím srovnávat pořadí,
-     je to jediná novinka, která dává lize kontext. */
+  /* The gameweek average. It only needs points, so it works from live
+     standings too — and in the first gameweek of the season, when there is
+     no previous rank to compare with, it is the one story giving context. */
   if(gw.length >= 3){
     const soucet = gw.reduce((a, x) => a + x.ev.points, 0);
-    const prumer = Math.round(soucet / gw.length);
-    const nad = gw.filter(x => x.ev.points > prumer).length;
+    const avg = Math.round(soucet / gw.length);
+    const above = gw.filter(x => x.ev.points > avg).length;
     news.push({
-      cls: 'warn', kicker: 'Průměr kola',
-      head: `Liga dala v průměru ${prumer} bodů`,
-      body: `Nad průměrem skončilo <b>${nad}</b> z ${gw.length} manažerů. `
-        + `Rozpětí od ${bottom.ev.points} do ${top.ev.points} bodů.`,
+      cls: 'warn', kicker: 'Gameweek average',
+      head: `The league averaged ${avg} points`,
+      body: `<b>${above}</b> of ${gw.length} managers finished above average. `
+        + `The range was ${bottom.ev.points} to ${top.ev.points} points.`,
     });
   }
 
-  /* Nejtěsnější souboj. Zajímavá je dvojice, která se v kole minula
-     o pár bodů — v malé lize je to obvykle ten příběh, o kterém se
-     pak píše do chatu. */
+  /* The tightest duel. The interesting pair is the one separated by a
+     couple of points — in a small league that is usually the story people
+     put in the group chat. */
   if(gw.length >= 3){
-    let nej = null;
+    let best = null;
     for(let i = 1; i < sorted.length; i++){
       const d = sorted[i - 1].ev.points - sorted[i].ev.points;
-      if(nej === null || d < nej.d) nej = {d, a: sorted[i - 1], b: sorted[i], poz: i};
+      if(best === null || d < best.d) best = {d, a: sorted[i - 1], b: sorted[i], poz: i};
     }
-    if(nej && nej.d <= 3 && nej.poz > 1){
+    if(best && best.d <= 3 && best.poz > 1){
       news.push({
         cls: 'warn', kicker: 'O fous',
-        head: nej.d === 0
-          ? `${esc(nej.a.m.player_name)} a ${esc(nej.b.m.player_name)} skončili na stejných bodech`
-          : `${esc(nej.a.m.player_name)} přeskočil ${esc(nej.b.m.player_name)} o ${nej.d} body`,
-        body: `Oba kolem <b>${nej.a.ev.points}</b> bodů — nejtěsnější souboj kola.`,
+        head: best.d === 0
+          ? `${esc(best.a.m.player_name)} and ${esc(best.b.m.player_name)} finished on the same points`
+          : `${esc(best.a.m.player_name)} edged ${esc(best.b.m.player_name)} by ${best.d}`,
+        body: `Both around <b>${best.a.ev.points}</b> points — the tightest duel of the gameweek.`,
       });
     }
   }
 
-  /* V čele celkově. Body za kolo a celkové pořadí jsou dvě různé zprávy;
-     vítěz kola nemusí vést ligu a naopak. */
+  /* Leading overall. Gameweek points and the overall table are two
+     different stories; the gameweek winner need not lead the league. */
   const celkem = gw.filter(x => Number.isFinite(x.ev.total_points))
     .sort((a, b) => b.ev.total_points - a.ev.total_points);
   if(celkem.length >= 2){
-    const lidr = celkem[0], druhy = celkem[1];
-    const naskok = lidr.ev.total_points - druhy.ev.total_points;
+    const leader = celkem[0], druhy = celkem[1];
+    const lead_ = leader.ev.total_points - druhy.ev.total_points;
     news.push({
-      cls: 'good', kicker: 'V čele ligy',
-      head: `${esc(lidr.m.player_name)} vede s ${lidr.ev.total_points} body`,
-      body: lidr.m.entry === top.m.entry
-        ? `Vyhrál kolo a zároveň vede tabulku — náskok <b>${naskok}</b> bodů na `
+      cls: 'good', kicker: 'Leading the league',
+      head: `${esc(leader.m.player_name)} vede s ${leader.ev.total_points} body`,
+      body: leader.m.entry === top.m.entry
+        ? `He won the gameweek and leads the table — <b>${lead_}</b> points clear of `
           + `${esc(druhy.m.player_name)}.`
-        : `Kolo sice vyhrál ${esc(top.m.player_name)}, tabulku ale drží `
-          + `<b>${esc(lidr.m.player_name)}</b> s náskokem ${naskok} bodů.`,
+        : `${esc(top.m.player_name)} won the gameweek, but the table belongs to `
+          + `<b>${esc(leader.m.player_name)}</b>, ${lead_} points clear.`,
     });
   }
 
   /* Pohyb v tabulce.
 
-     Tohle je jediná novinka, která se během rozehraného kola nedá
-     ukázat ani s výhradou: porovnávala by rozehraný stav s posledním
-     dokončeným, takže by hlásila skoky, které se do neděle několikrát
-     otočí. Radši ji vynecháme, než abychom ji opravovali každou hodinu. */
+     This is the one story that cannot be shown during a live gameweek
+     even with a caveat: it would compare a half-played state with the last
+     finished one, so it would report jumps that flip several times before
+     Sunday. Better to omit it than to correct it every hour. */
   const {ranks, gws} = leagueRanks(members, hists);
-  const idx = cur.id;   // pořadí po tomhle kole je na indexu id-1
+  const idx = cur.id;   // the rank after this gameweek sits at index id-1
   if(gws >= 2 && idx >= 2 && phase !== 'running'){
     const moves = members.map((m, i) => ({
       m, delta: ranks[i][idx - 2] - ranks[i][idx - 1],
@@ -1446,16 +908,16 @@ function buildNews(gwId, picksFor){
     const down = moves.slice().sort((a, b) => a.delta - b.delta)[0];
     if(up && up.delta >= 2){
       news.push({
-        cls: 'good', kicker: 'Skok kola',
-        head: `${esc(up.m.player_name)} vyskočil o ${up.delta} míst`,
-        body: `Z <b>${up.from}.</b> na <b>${up.to}. místo</b>.`,
+        cls: 'good', kicker: 'Skok gws',
+        head: `${esc(up.m.player_name)} climbed ${up.delta} places`,
+        body: `From <b>${up.from}</b> to <b>${up.to}</b>.`,
       });
     }
     if(down && down.delta <= -2){
       news.push({
-        cls: 'bad', kicker: 'Pád kola',
-        head: `${esc(down.m.player_name)} spadl o ${-down.delta} míst`,
-        body: `Z <b>${down.from}.</b> na <b>${down.to}. místo</b>.`,
+        cls: 'bad', kicker: 'Fall of the gameweek',
+        head: `${esc(down.m.player_name)} dropped ${-down.delta} places`,
+        body: `From <b>${down.from}</b> to <b>${down.to}</b>.`,
       });
     }
   }
@@ -1506,17 +968,17 @@ function buildBoards(){
       (chipNames[c.name] || c.name) + ' GW' + c.event).join(', ')}</span></li>`).join('');
 
   return `<div class="boards">
-    ${board('Daň za transfery', 'Body odevzdané za přesuny', pick(s => s.tax), v => '−' + v)}
-    ${board('Zmrzlá lavička', 'Body, co protekly na lavičce', pick(s => s.bench), v => v)}
-    ${board('Nejaktivnější', 'Počet transferů za sezónu', pick(s => s.moves), v => v)}
-    ${board('Nejstabilnější', 'Nejmenší rozptyl bodů po kolech', pick(s => s.sd),
+    ${board('Transfer tax', 'Points handed over for moves', pick(s => s.tax), v => '−' + v)}
+    ${board('Frozen bench', 'Points that leaked away on the bench', pick(s => s.bench), v => v)}
+    ${board('Busiest', 'Transfers made this season', pick(s => s.moves), v => v)}
+    ${board('Most consistent', 'Smallest spread of points per gameweek', pick(s => s.sd),
             v => v.toFixed(1), true)}
-    ${board('Efektivita kádru', 'Body na milion hodnoty týmu',
+    ${board('Squad efficiency', 'Points per million of team value',
             pick(s => s.value ? s.total / s.value : 0), v => v.toFixed(1))}
     <div class="board">
-      <h4>Spálené žolíky</h4>
-      <p class="cap">Kdo už co použil</p>
-      <ol>${chipRows || '<li style="list-style:none;margin-left:-19px;color:var(--mute)">Zatím nikdo.</li>'}</ol>
+      <h4>Chips used</h4>
+      <p class="cap">Who has burned what</p>
+      <ol>${chipRows || '<li style="list-style:none;margin-left:-19px;color:var(--mute)">Nobody yet.</li>'}</ol>
     </div>
   </div>`;
 }
@@ -1533,13 +995,13 @@ function buildHealth(){
     if(!pk) return null;
     const squad = pk.picks.map(x => els[x.element]).filter(Boolean);
 
-    /* Dvě různé zprávy, ne dvě čtení téže.
+    /* Two different messages, not two readings of the same one.
 
-       Původně sloupec „Nehraje“ počítal nedostupné hráče a „Pod otazníkem“
-       úplně všechny označené — tedy včetně těch nedostupných. Yates se
-       statusem `i` se tak objevil v obou sloupcích a vypadalo to, že má
-       Kryštof problémy dva. Kategorie proto musí být disjunktní: kdo je
-       v `out`, do otazníků už nepatří. */
+       Originally the "Out" column counted unavailable players and
+       "Doubtful" counted everyone flagged — including the unavailable ones.
+       A player with status `i` therefore appeared in both columns and it
+       looked like two separate problems. The categories must be disjoint:
+       whoever is in `out` no longer belongs among the doubts. */
     const isOut = p => p.status === 'i' || p.status === 's' || p.status === 'u'
       || p.status === 'n' || p.chance_of_playing_next_round === 0;
 
@@ -1562,8 +1024,8 @@ function buildHealth(){
   rows.sort((a, b) => b.out.length - a.out.length || b.doubt.length - a.doubt.length);
 
   return `<table>
-    <thead><tr><th>Manažer</th><th class="n">Nehraje</th><th class="n">Pod otazníkem</th>
-      <th class="n">FDR kádru</th><th class="hide-s">Kdo</th></tr></thead>
+    <thead><tr><th>Manager</th><th class="n">Out</th><th class="n">Doubtful</th>
+      <th class="n">Squad FDR</th><th class="hide-s">Who</th></tr></thead>
     <tbody>${rows.map(r => `<tr>
       <td><b>${HUB && HUB.cur
         ? squadBtn(r.m.entry, HUB.cur.id, r.m.player_name, r.m.entry_name)
@@ -1573,10 +1035,10 @@ function buildHealth(){
       <td class="n ${r.avgFdr >= 3.6 ? 'al' : r.avgFdr <= 2.6 ? 'ok' : ''}">${r.avgFdr.toFixed(2)}</td>
       <td class="hide-s" style="color:var(--mute);font-size:12px">${esc(r.names.join(', ')) || '—'}</td>
     </tr>`).join('')}</tbody></table>
-  <p class="note">Sloupce se nepřekrývají: kdo nehraje, do otazníků se
-  už nepočítá. Otazníkem je hráč s šancí nastoupit 25–75 %; ve sloupci
-  „Kdo“ ho pozná podle otazníku za jménem. FDR kádru je průměrná obtížnost
-  dalších tří zápasů přes všech 15 hráčů — nižší je lepší.</p>`;
+  <p class="note">The columns do not overlap: a player who is out is not
+  counted among the doubts. A doubt is a player with a 25–75 % chance of
+  playing; in the "Who" column he is marked with a question mark. Squad FDR is the
+  average difficulty of the next three fixtures across all 15 players — lower is better.</p>`;
 }
 
 function buildCollective(){
@@ -1586,7 +1048,7 @@ function buildCollective(){
 
   const valid = picks.filter(Boolean);
   const n = valid.length;
-  if(!n) return '<p class="note">Sestavy zatím nejsou dostupné.</p>';
+  if(!n) return '<p class="note">Squads are not available yet.</p>';
 
   // kapitanska mapa
   const capCount = {};
@@ -1631,27 +1093,27 @@ function buildCollective(){
     .slice(0, 6);
 
   return `
-    <h2>Kapitánská mapa · GW${cur.id}</h2>
+    <h2>Captain map · GW${cur.id}</h2>
     <div class="capmap">${capRows}</div>
 
-    <h2>Efekt šablony${info(`${
+    <h2>Template effect${info(`${
       templatePct >= 60
-        ? 'Liga hraje skoro stejný tým — rozhodne se to na pár rozdílných hráčích a kapitánovi.'
+        ? 'The league is playing almost the same team — it will be decided by a few differentials and the captain.'
         : templatePct >= 35
-          ? 'Sestavy se překrývají zhruba z třetiny. Prostor odlišit se tu pořád je.'
-          : 'Každý si jede po svém — tabulka se může házet kolo od kola.'}`)}</h2>
+          ? 'The squads overlap by about a third. There is still room to differentiate.'
+          : 'Everyone goes their own way — the table can swing from gameweek to gameweek.'}`)}</h2>
     <div class="kpis">
-      <div><div class="k">Jádro ligy</div><div class="v">${core.length}</div></div>
-      <div><div class="k">Má každý</div><div class="v">${universal.length}</div></div>
+      <div><div class="k">League core</div><div class="v">${core.length}</div></div>
+      <div><div class="k">Owned by all</div><div class="v">${universal.length}</div></div>
       <div><div class="k">Shoda</div><div class="v">${templatePct} %</div></div>
     </div>
     
 
-    <h2>Liga proti proudu${info(`Kde je tvoje liga jinde než zbytek světa. Kladný rozdíl znamená,
-    že vy na hráče věříte víc než ostatní.`)}</h2>
+    <h2>League against the grain${info(`Where your league differs from the rest of the world. A positive
+    difference means you back a player more than everyone else does.`)}</h2>
     <table>
-      <thead><tr><th>Hráč</th><th class="hide-s">Tým</th>
-        <th class="n">V lize</th><th class="n">Globálně</th><th class="n">Rozdíl</th></tr></thead>
+      <thead><tr><th>Player</th><th class="hide-s">Team</th>
+        <th class="n">In league</th><th class="n">Global</th><th class="n">Difference</th></tr></thead>
       <tbody>${contrarian.map(x => `<tr>
         <td><b>${esc(x.p.web_name)}</b></td>
         <td class="hide-s">${esc(teams[x.p.team].short_name)}</td>
@@ -1665,14 +1127,14 @@ function buildCollective(){
 
 /* ============ CENY KOLA ============
 
-   Čtyři hlavní ceny stojí nad novinkami. Dvě z nich (výherce, smolař)
-   vystačí s historií, kterou hub načítá tak jako tak. Kapitánské ceny
-   potřebují navíc sestavy kola a body jednotlivých hráčů — obojí se
-   dotahuje líně, viz loadNewsGw. Když chybí, karta se prostě vynechá;
-   mřížka se tím zúží, ale nezůstane v ní díra s pomlčkou. */
+   The four main awards sit above the stories. Two of them (winner, unlucky
+   manager) need only the history the hub loads anyway. The captain awards
+   also need the gameweek's picks and individual player points — both are
+   fetched lazily, see loadNewsGw. When they are missing the card is simply
+   skipped; the grid narrows, but no hole with a dash is left in it. */
 
-/* Body hráčů daného kola jako mapa id → body. Bez `event/{gw}/live/`
-   bychom u kapitána znali jen jméno, ne jeho výkon. */
+/* That gameweek's player points as an id → points map. Without
+   `event/{gw}/live/` we would know the captain's name but not his return. */
 function liveMap(live){
   const m = new Map();
   if(live && Array.isArray(live.elements)){
@@ -1683,8 +1145,8 @@ function liveMap(live){
   return m;
 }
 
-/* Kapitáni kola i s body po zdvojení. Trojnásobný kapitán (TC) má
-   multiplier 3, takže se bere z picku a ne natvrdo dvojka. */
+/* The gameweek's captains together with their doubled points. A triple
+   captain has multiplier 3, so it is read from the pick, not hard-coded. */
 function capRows(picksFor, live, gw){
   const picks = picksFor || [];
   const body = liveMap(live);
@@ -1694,9 +1156,9 @@ function capRows(picksFor, live, gw){
     const pk = picks[i];
     if(!pk || !pk.picks) return null;
 
-    /* Kapitán, který se doopravdy počítal. Když ten nasazený neodehrál,
-       přebral pásku vicekapitán — dřív se v tom případě zdvojovala nula
-       a cena šla nesprávnému hráči. */
+    /* The captain who actually counted. When the picked one did not play,
+       the vice captain took the armband — before this the app doubled a
+       zero and the award went to the wrong player. */
     const L = resolveLineup(pk, stats, gw != null ? gw : HUB.cur.id);
     const c = L.rows.find(r => r.captain);
     if(!c || !body.has(c.element)) return null;
@@ -1706,13 +1168,13 @@ function capRows(picksFor, live, gw){
   }).filter(Boolean);
 }
 
-/* Hráči, které manažer nechal na lavičce, i s body. */
-function lavickaRows(pk, live, gw){
+/* The players a manager left on the bench, together with their points. */
+function benchRows(pk, live, gw){
   const body = liveMap(live);
   if(!pk || !pk.picks || !body.size) return [];
 
-  /* Kdo se autosubem dostal do hry, na lavičce neseděl — obviňovat
-     manažera z bodů, které nakonec dostal, je horší než cenu neudělit. */
+  /* Anyone brought on by an autosub was not sitting on the bench —
+     blaming the manager for points he did get is worse than no award. */
   const L = resolveLineup(pk, liveStats(live), gw != null ? gw : HUB.cur.id);
   const hral = new Set(L.rows.filter(r => r.mult > 0).map(r => r.element));
 
@@ -1721,97 +1183,97 @@ function lavickaRows(pk, live, gw){
     .map(p => ({pid: p.element, pts: body.get(p.element) || 0}));
 }
 
-/* Nejlepší hráč z lavičky. Doplňuje cenu pro smolaře o jméno —
-   samotné číslo neřekne, koho to mrzí. */
-function nejLavicka(pk, live, gwId){
-  const nej = lavickaRows(pk, live, gwId).sort((a, b) => b.pts - a.pts)[0];
-  return nej && nej.pts > 0 ? nej : null;
+/* The best player on the bench. It adds a name to the unlucky-manager
+   award — the number alone does not say who it hurts. */
+function benchBest(pk, live, gwId){
+  const best = benchRows(pk, live, gwId).sort((a, b) => b.pts - a.pts)[0];
+  return best && best.pts > 0 ? best : null;
 }
 
-/* Body na lavičce pro jeden řádek kola.
+/* Bench points for one gameweek row.
 
-   Historie týmu (`entry/{id}/history/`) je nese hotové, ale plní se se
-   zpožděním — po prvním kole sezóny tam řádek chvíli není vůbec a body
-   se berou z živého pořadí ligy, které lavičku nezná. Dřív to znamenalo,
-   že cena pro smolaře v GW1 prostě nebyla. Sestavy a body hráčů přitom
-   máme, takže si součet spočítáme sami; z historie se bere jen tehdy,
-   když tam je. Vrací null, když se nedá zjistit vůbec — to je pořád
-   lepší než tvrdit nulu. */
-function lavickaBody(row, pk, live, gwId){
-  if(row.ev && !row.ev.zeStandings && Number.isFinite(row.ev.points_on_bench)){
+   The team history (`entry/{id}/history/`) carries them ready-made, but it
+   fills in with a delay — after the first gameweek of the season the row
+   is missing for a while and points come from live league standings, which
+   do not know the bench. That used to mean no unlucky-manager award in GW1
+   at all. We do have the picks and player points, so the total is computed
+   here; history is used only when it is there. Returns null when it cannot
+   be determined at all — still better than claiming zero. */
+function benchPoints(row, pk, live, gwId){
+  if(row.ev && !row.ev.fromStandings && Number.isFinite(row.ev.points_on_bench)){
     return row.ev.points_on_bench;
   }
-  const lav = lavickaRows(pk, live, gwId);
-  return lav.length ? lav.reduce((a, x) => a + x.pts, 0) : null;
+  const benched = benchRows(pk, live, gwId);
+  return benched.length ? benched.reduce((a, x) => a + x.pts, 0) : null;
 }
 
-/* Smolař kola: nejvíc bodů nechaných na lavičce. */
-/* Smolaři kola: všichni, kdo nechali na lavičce nejvíc bodů.
+/* Unlucky manager of the gameweek: most points left on the bench. */
+/* Unlucky managers of the gameweek: everyone who left the most points on
 
-   Vrací celou skupinu na maximu, ne jen prvního — cena se při shodě
-   dělí a nad polovinou ligy propadá, stejně jako u kapitánů. Do počtu
-   se berou jen manažeři, u kterých se lavička dá spočítat; kdo má
-   `null` (chybí historie i sestavy), do statistiky nepatří. */
-function smolari(gw, picksFor, live, gwId){
+   the bench. Returns the whole group at the maximum, not just the first —
+   a tie splits the award, and above half the league it lapses, exactly as
+   with captains. Only managers whose bench can be computed are counted;
+   anyone with `null` (no history and no picks) is left out. */
+function unluckiest(gw, picksFor, live, gwId){
   const picks = picksFor || [];
-  const s = gw.map(x => ({...x, lav: lavickaBody(x, picks[x.i], live, gwId)}))
+  const s = gw.map(x => ({...x, benched: benchPoints(x, picks[x.i], live, gwId)}))
     .filter(x => Number.isFinite(x.lav));
-  if(!s.length) return {vsichni: [], nej: []};
+  if(!s.length) return {all_: [], best: []};
   const max = Math.max(...s.map(x => x.lav));
-  return {vsichni: s, nej: max > 0 ? s.filter(x => x.lav === max) : []};
+  return {all_: s, best: max > 0 ? s.filter(x => x.lav === max) : []};
 }
 
-/* Zpětně kompatibilní jednička — používá ji síň slávy, kde se počítá
-   jen to, kdo cenu dostal. */
-function smolar(gw, picksFor, live, gwId){
-  const {nej} = smolari(gw, picksFor, live, gwId);
-  return nej.length ? nej[0] : null;
+/* A backwards-compatible single value — used by the hall of fame, which
+   jen to, who_ cenu dostal. */
+function unluckiest1(gw, picksFor, live, gwId){
+  const {best} = unluckiest(gw, picksFor, live, gwId);
+  return best.length ? best[0] : null;
 }
 
-/* Diagnostika kapitánských cen.
+/* Diagnostics for the captain awards.
 
-   Ceny se počítají ze dvou zdrojů (sestavy + body hráčů kola) a když
-   jeden z nich přijde v nečekaném tvaru, karta prostě není. Tohle
-   vypíše, kde se řetěz trhá, aby se to nemuselo hádat z toho, co na
-   stránce chybí. Volá se ručně z konzole: debugCeny(1). */
+   The awards are computed from two sources (picks + gameweek player
+   points) and when one of them arrives in an unexpected shape the card
+   simply is not there. This prints where the chain breaks, so it does not
+   have to be guessed from what is missing. Call it manually: debugAwards(1). */
 window.debugCeny = function(gw){
   const g = gw || NEWS_GW || (HUB && HUB.cur.id);
-  if(!HUB){ console.log('HUB není načtený — otevři nejdřív Hub ligy.'); return; }
+  if(!HUB){ console.log('HUB is not loaded — open the League hub first.'); return; }
   const picks = NEWS_PICKS.get(g), live = NEWS_LIVE.get(g);
   const body = liveMap(live);
-  console.log('kolo', g, '· fáze', gwPhase(g));
-  console.log('členů ligy:', HUB.members.length);
-  console.log('sestav:', picks ? picks.length : '(nenačteno)',
-    '· z toho prázdných:', picks ? picks.filter(p => !p || !p.picks).length : '-');
-  console.log('hráčů v mapě bodů:', body.size,
+  console.log('gameweek', g, '· phase', gwPhase(g));
+  console.log('league members:', HUB.members.length);
+  console.log('picks:', picks ? picks.length : '(not loaded)',
+    '· of which empty:', picks ? picks.filter(p => !p || !p.picks).length : '-');
+  console.log('players in the points map:', body.size,
     '· live:', live ? 'objekt' : String(live));
   const caps = capRows(picks, live, g);
-  console.log('spárovaných kapitánů:', caps.length);
+  console.log('captains matched:', caps.length);
   console.table(caps.map(c => ({
     manazer: c.m.player_name, kapitan: c.pid, raw: c.raw,
     mult: c.mult, body: c.pts,
   })));
-  const bezBodu = (picks || []).map((pk, i) => {
+  const unmatched = (picks || []).map((pk, i) => {
     if(!pk || !pk.picks) return null;
     const c = pk.picks.find(x => x.is_captain);
-    if(!c) return HUB.members[i].player_name + ': žádný is_captain';
+    if(!c) return HUB.members[i].player_name + ': no is_captain';
     if(!body.has(c.element)) return HUB.members[i].player_name
-      + ': kapitán ' + c.element + ' není v mapě bodů';
+      + ': captain ' + c.element + ' is not in the points map';
     return null;
   }).filter(Boolean);
-  if(bezBodu.length) console.log('nespárováno:', bezBodu);
-  console.log('ceny:', buildAwards(g, picks, live).map(a => a.key).join(', ') || '(žádné)');
+  if(unmatched.length) console.log('unmatched:', unmatched);
+  console.log('awards:', buildAwards(g, picks, live).map(a => a.key).join(', ') || '(none)');
 };
 
 const AWARD_META = {
-  win:   {cls: 'a-win',   emoji: '🏆', title: 'Výherce kola'},
-  bench: {cls: 'a-bench', emoji: '🪑', title: 'Smolař kola'},
-  cap:   {cls: 'a-cap',   emoji: '👑', title: 'Kapitán týdne'},
-  flop:  {cls: 'a-flop',  emoji: '🤡', title: 'Kapitánský propadák'},
+  win:   {cls: 'a-win',   emoji: '🏆', title: 'Gameweek winner'},
+  bench: {cls: 'a-bench', emoji: '🪑', title: 'Unlucky manager'},
+  cap:   {cls: 'a-cap',   emoji: '👑', title: 'Captain of the week'},
+  flop:  {cls: 'a-flop',  emoji: '🤡', title: 'Captain flop'},
 };
 
-/* Vrátí pole cen ve tvaru {key, who, val, sub}. Prázdné pole znamená,
-   že za kolo zatím nejsou žádná data — panel to řekne místo mřížky. */
+/* Returns an array of awards shaped {key, who, val, sub}. An empty array
+   means there is no data for the gameweek yet — the panel says so. */
 function buildAwards(gwId, picksFor, liveFor){
   const id = gwId != null ? gwId : HUB.cur.id;
   const gw = gwRows(id);
@@ -1819,7 +1281,7 @@ function buildAwards(gwId, picksFor, liveFor){
   if(!gw.length) return out;
 
   const els = Object.fromEntries(BOOT.elements.map(p => [p.id, p]));
-  const jmeno = pid => esc(els[pid] ? els[pid].web_name : '?');
+  const name_ = pid => esc(els[pid] ? els[pid].web_name : '?');
 
   // vyherce
   const sorted = gw.slice().sort((a, b) => b.ev.points - a.ev.points);
@@ -1832,126 +1294,127 @@ function buildAwards(gwId, picksFor, liveFor){
       : esc(top.m.player_name),
     whoHtml: (delici.length > 1 ? delici : [top])
       .map(x => squadBtn(x.m.entry, id, x.m.player_name, x.m.entry_name)).join(' & '),
-    val: top.ev.points + ' b',
+    val: top.ev.points + ' pts',
     sub: delici.length > 1
-      ? 'O první místo se dělí na stejných bodech.'
+      ? 'First place is shared on equal points.'
       : second
         ? (top.ev.points - second.ev.points >= 15
-            ? `Náskok <b>${top.ev.points - second.ev.points} bodů</b> — to už není náhoda.`
-            : `O <b>${top.ev.points - second.ev.points}</b> před ${esc(second.m.player_name)}.`)
+            ? `A <b>${top.ev.points - second.ev.points} point</b> lead — that is not luck.`
+            : `<b>${top.ev.points - second.ev.points}</b> ahead of ${esc(second.m.player_name)}.`)
         : '',
   });
 
-  /* Smolař — nejvíc bodů na lavičce. Platí tu totéž pravidlo jako
-     u kapitánů: cena je odlišení, takže se při polovině ligy a víc
-     neuděluje. Deset lidí se stejnou lavičkou není smolař, to je kolo. */
-  const {vsichni: lavVsichni, nej: lavNej} = smolari(gw, picksFor, liveFor, id);
-  if(lavNej.length){
-    const vsichniStejne = lavNej.length === lavVsichni.length;
-    const vetsinaLav = lavNej.length * 2 >= lavVsichni.length;
-    /* `who` zůstává prostým textem — čte ho síň slávy i testy. Klikatelná
-       varianta jde vedle jako `whoHtml`, takže karta může odkazovat na
-       sestavu, aniž by se text ceny stal HTML. */
+  /* Unlucky manager — most points on the bench. The same rule as for
+     captains applies: an award is a distinction, so it is not given when
+     half the league or more shares it. Ten people with the same bench is
+     not an unlucky manager, that is just the gameweek. */
+  const {all_: benchAll, best: benchTop} = unluckiest(gw, picksFor, liveFor, id);
+  if(benchTop.length){
+    const allEqual = benchTop.length === benchAll.length;
+    const benchMajority = benchTop.length * 2 >= benchAll.length;
+    /* `who` stays plain text — the hall of fame and the tests read it. The
+       clickable variant sits beside it as `whoHtml`, so a card can link to
+       a squad without the award text becoming HTML. */
     const jmenaLav = list => list.length <= 3
       ? list.map(c => esc(c.m.player_name)).join(', ')
-      : esc(list[0].m.player_name) + ' a další ' + (list.length - 1);
+      : esc(list[0].m.player_name) + ' and ' + (list.length - 1) + ' more';
 
-    if(vsichniStejne && lavVsichni.length > 1){
+    if(allEqual && benchAll.length > 1){
       out.push({
-        key: 'bench', who: 'Nikdo se neodlišil', val: lavNej[0].lav + ' b',
-        sub: `Všech ${lavVsichni.length} manažerů nechalo na lavičce stejně.`,
+        key: 'bench', who: 'Nobody stood out', val: benchTop[0].lav + ' pts',
+        sub: `All ${benchAll.length} managers left the same on the bench.`,
       });
-    }else if(vetsinaLav){
+    }else if(benchMajority){
       out.push({
-        key: 'bench', who: 'Bez ceny', val: '—',
-        sub: `Stejně bodů na lavičce nechala většina ligy `
-          + `(${lavNej.length} z ${lavVsichni.length}) — cena se za tohle kolo neuděluje.`,
+        key: 'bench', who: 'Bez awards_', val: '—',
+        sub: `Most of the league left the same points on the bench `
+          + `(${benchTop.length} of ${benchAll.length}) — no award this gameweek.`,
       });
     }else{
-      const kdo = lavNej[0];
-      const nej = lavNej.length === 1 ? nejLavicka((picksFor || [])[kdo.i], liveFor, id) : null;
+      const who_ = benchTop[0];
+      const best = benchTop.length === 1 ? benchBest((picksFor || [])[who_.i], liveFor, id) : null;
       out.push({
         key: 'bench',
-        who: jmenaLav(lavNej),
-        whoHtml: lavNej.length <= 3
-          ? lavNej.map(c => squadBtn(c.m.entry, id, c.m.player_name, c.m.entry_name)).join(', ')
+        who: jmenaLav(benchTop),
+        whoHtml: benchTop.length <= 3
+          ? benchTop.map(c => squadBtn(c.m.entry, id, c.m.player_name, c.m.entry_name)).join(', ')
           : null,
-        val: kdo.lav + ' b',
-        sub: lavNej.length > 1
-          ? 'Na lavičce nechali stejně — o cenu se dělí.'
-          : nej
-            ? `Nechal na lavičce — <b>${jmeno(nej.pid)}</b> za ${nej.pts} bodů.`
-            : 'Body, které měl v týmu a nedostal je.',
+        val: who_.benchPts + ' pts',
+        sub: benchTop.length > 1
+          ? 'They left the same on the bench — the award is shared.'
+          : best
+            ? `Left on the bench — <b>${name_(best.pid)}</b> for ${best.pts} points.`
+            : 'Points he owned and did not get.',
       });
     }
   }
 
-  // kapitanske ceny
-  /* Kapitánské ceny.
+  // kapitanske awards_
+  /* Captain awards.
 
-     Cena má smysl jen jako odlišení. Když se na krajní hodnotě sejde
-     polovina ligy nebo víc, není to výkon, ale průměr kola — cena se
-     tehdy neuděluje a karta to řekne. Práh je ostrý na polovině:
-     4 z 10 cenu ještě dostanou, 5 z 10 už ne.
+     An award only means something as a distinction. When half the league
+     or more lands on the extreme value, that is not a performance but the
+     gameweek average — the award then lapses and the card says so. The
+     threshold is sharp at half: 4 of 10 still get it, 5 of 10 do not.
 
-     Obě strany se posuzují zvlášť. Když devět lidí vsadí na stejného
-     kapitána a jeden ne, kapitánská cena propadne, ale ten jeden pořád
-     může dostat propadáka — a naopak. */
+     Both ends are judged separately. When nine people back the same
+     captain and one does not, the captain award lapses but that one
+     manager can still take the flop — and vice versa. */
   const caps = capRows(picksFor, liveFor, id);
   if(caps.length >= 2){
     const dle = caps.slice().sort((a, b) => b.pts - a.pts);
-    const nej = dle[0], nic = dle[dle.length - 1];
-    const vitezove = dle.filter(c => c.pts === nej.pts);
-    const posledni = dle.filter(c => c.pts === nic.pts);
+    const best = dle[0], worst = dle[dle.length - 1];
+    const winners = dle.filter(c => c.pts === best.pts);
+    const lastPlace = dle.filter(c => c.pts === worst.pts);
     const vetsina = list => list.length * 2 >= caps.length;
 
-    const jmena = list => list.length <= 3
+    const namesOf = list => list.length <= 3
       ? list.map(c => esc(c.m.player_name)).join(', ')
-      : esc(list[0].m.player_name) + ' a další ' + (list.length - 1);
+      : esc(list[0].m.player_name) + ' and ' + (list.length - 1) + ' more';
 
-    /* Když skupina drží jednoho hráče, řekneme to jménem — je to
-       konkrétnější než „dopadli stejně“. */
-    const duvod = list => list.every(c => c.pid === list[0].pid)
-      ? `Stejného kapitána (${jmeno(list[0].pid)}) měla většina ligy`
-      : 'Většina ligy skončila na stejných bodech';
+    /* When the group holds one player, name him — that is more concrete
+       than "they finished level". */
+    const reason = list => list.every(c => c.pid === list[0].pid)
+      ? `Most of the league had the same captain (${name_(list[0].pid)})`
+      : 'Most of the league finished on the same points';
 
-    if(nej.pts === nic.pts){
-      /* Celá liga na jednom čísle — dělit ani vyhlašovat není co.
-         Karty ale zůstanou obě: kdyby jedna zmizela, vypadalo by to,
-         že se propadák z nějakého důvodu nepočítal. */
+    if(best.pts === worst.pts){
+      /* The whole league on one number — nothing to split and nothing to
+         announce. Both cards stay, though: if one disappeared it would
+         look as if the flop had not been computed for some reason. */
       out.push({
         key: 'cap',
-        who: 'Nikdo se neodlišil',
-        val: nej.pts + ' b',
-        sub: `Všech ${caps.length} kapitánů dalo stejně. `
-          + 'Kolo se rozhodlo jinde než na páskách.',
+        who: 'Nobody stood out',
+        val: best.pts + ' pts',
+        sub: `All ${caps.length} captains returned the same. `
+          + 'The gameweek was decided somewhere other than the armband.',
       });
       out.push({
         key: 'flop',
-        who: 'Nikdo se neodlišil',
-        val: nic.pts + ' b',
-        sub: 'Nikdo nepropadl víc než ostatní — všichni na stejných bodech.',
+        who: 'Nobody stood out',
+        val: worst.pts + ' pts',
+        sub: 'Nobody flopped harder than the rest — everyone on the same points.',
       });
     }else{
-      out.push(vetsina(vitezove)
-        ? {key: 'cap', who: 'Bez ceny', val: '—',
-           sub: `${duvod(vitezove)} — cena se za tohle kolo neuděluje.`}
-        : {key: 'cap', who: jmena(vitezove), val: nej.pts + ' b',
-           whoHtml: vitezove.length <= 3 ? vitezove.map(c =>
+      out.push(vetsina(winners)
+        ? {key: 'cap', who: 'Bez awards_', val: '—',
+           sub: `${reason(winners)} — no award this gameweek.`}
+        : {key: 'cap', who: namesOf(winners), val: best.pts + ' pts',
+           whoHtml: winners.length <= 3 ? winners.map(c =>
              squadBtn(c.m.entry, id, c.m.player_name, c.m.entry_name)).join(', ') : null,
-           sub: `${jmeno(nej.pid)} (${nej.raw} × ${nej.mult})`
-             + (vitezove.length > 1 ? ' — o cenu se dělí.'
-               : caps.filter(c => c.pid === nej.pid).length === 1
-                 ? ' — jako jediný v lize.' : '.')});
+           sub: `${name_(best.pid)} (${best.raw} × ${best.mult})`
+             + (winners.length > 1 ? ' — the award is shared.'
+               : caps.filter(c => c.pid === best.pid).length === 1
+                 ? ' — the only one in the league.' : '.')});
 
-      out.push(vetsina(posledni)
-        ? {key: 'flop', who: 'Bez ceny', val: '—',
-           sub: `${duvod(posledni)} — cena se za tohle kolo neuděluje.`}
-        : {key: 'flop', who: jmena(posledni), val: nic.pts + ' b',
-           whoHtml: posledni.length <= 3 ? posledni.map(c =>
+      out.push(vetsina(lastPlace)
+        ? {key: 'flop', who: 'Bez awards_', val: '—',
+           sub: `${reason(lastPlace)} — no award this gameweek.`}
+        : {key: 'flop', who: namesOf(lastPlace), val: worst.pts + ' pts',
+           whoHtml: lastPlace.length <= 3 ? lastPlace.map(c =>
              squadBtn(c.m.entry, id, c.m.player_name, c.m.entry_name)).join(', ') : null,
-           sub: `${jmeno(nic.pid)} (${nic.raw} × ${nic.mult})`
-             + (posledni.length > 1 ? ' — a nebyl v tom sám.' : '.')});
+           sub: `${name_(worst.pid)} (${worst.raw} × ${worst.mult})`
+             + (lastPlace.length > 1 ? ' — and he was not alone.' : '.')});
     }
   }
 
@@ -1959,30 +1422,31 @@ function buildAwards(gwId, picksFor, liveFor){
 }
 
 /* ------------------------------------------------------------
-   Síň slávy: kolikrát kdo které ceny získal za celou sezónu.
+   Hall of fame: how many of each award everyone has won this season.
 
-   Výhry a lavička se dopočítají z historie, kterou hub drží — nula
-   dotazů navíc. Kapitánské sloupce potřebují sestavy a body kola;
-   ty jsou jen pro kola, která už někdo otevřel, nebo pro všechna
-   po stisku „Načíst celou sezónu“. `pokryto` proto vrací počet kol,
-   ze kterých kapitánské sloupce vznikly, aby se dalo poznat, že jsou
-   neúplné, místo aby tabulka tiše lhala.
+   Wins and bench points are derived from the history the hub already
+   holds — zero extra requests. The captain columns need picks and player
+   points; those exist only for gameweeks somebody has opened, or for all
+   of them after pressing "Load the whole season". `covered` therefore
+   returns how many gameweeks the captain columns were built from, so it
+   is visible that they are incomplete instead of the table lying quietly.
    ------------------------------------------------------------ */
 function hallOfFame(){
   const rows = HUB.members.map(m => ({
     m, win: 0, bench: 0, cap: 0, flop: 0,
   }));
   const podleEntry = new Map(rows.map(r => [r.m.entry, r]));
-  let kol = 0, pokryto = 0;
+  let gwCount = 0, covered = 0;
 
   for(const g of newsGws()){
-    /* Do bilance sezóny jde jen dopočítané kolo. Rozehrané se mění po
-       každém zápase a u čekajícího na bonusy může tříbodový bonus otočit
-       vítěze i propadáka — tabulka by pak přepisovala historii. */
+    /* Only a finalised gameweek counts towards the season tally. A live
+       one changes after every match, and while bonus is pending a
+       three-point bonus can flip both winner and flop — the table would
+       then be rewriting history. */
     if(gwPhase(g) !== 'final') continue;
     const gw = gwRows(g);
     if(!gw.length) continue;
-    kol++;
+    gwCount++;
 
     const sorted = gw.slice().sort((a, b) => b.ev.points - a.ev.points);
     const max = sorted[0].ev.points;
@@ -1990,16 +1454,16 @@ function hallOfFame(){
       const r = podleEntry.get(x.m.entry); if(r) r.win++;
     });
 
-    const lav = smolar(gw, NEWS_PICKS.get(g), NEWS_LIVE.get(g), g);
-    if(lav){
-      const r = podleEntry.get(lav.m.entry); if(r) r.bench++;
+    const benched = unluckiest1(gw, NEWS_PICKS.get(g), NEWS_LIVE.get(g), g);
+    if(benched){
+      const r = podleEntry.get(benched.m.entry); if(r) r.bench++;
     }
 
     const caps = capRows(NEWS_PICKS.get(g), NEWS_LIVE.get(g), g);
     if(caps.length >= 2){
       const dle = caps.slice().sort((a, b) => b.pts - a.pts);
       if(dle[0].pts !== dle[dle.length - 1].pts){
-        pokryto++;
+        covered++;
         const a = podleEntry.get(dle[0].m.entry); if(a) a.cap++;
         const b = podleEntry.get(dle[dle.length - 1].m.entry); if(b) b.flop++;
       }
@@ -2008,46 +1472,46 @@ function hallOfFame(){
 
   rows.sort((a, b) => b.win - a.win || a.flop - b.flop || b.cap - a.cap
     || a.m.player_name.localeCompare(b.m.player_name, 'cs'));
-  return {rows, kol, pokryto};
+  return {rows, gwCount, covered};
 }
 
 /* ------------------------------------------------------------
-   Panel novinek: přepínač kol + stav + samotné zprávy.
+   The stories panel: gameweek switcher + status + the stories themselves.
 
-   Sestavy starších kol držíme v NEWS_PICKS, aby druhé kliknutí na
-   totéž kolo nic nestahovalo. cached() by to zvládl taky, ale takhle
-   je vidět, co panel drží.
+   The picks of older gameweeks are kept in NEWS_PICKS so that clicking
+   the same gameweek twice downloads nothing. cached() would handle that
+   too, but this way it is visible what the panel holds.
    ------------------------------------------------------------ */
 let NEWS_GW = null;
 const NEWS_PICKS = new Map();
 const NEWS_LIVE = new Map();
-let HALL_ALL = false;   // stiskl někdo „Načíst celou sezónu“?
+let HALL_ALL = false;   // has anyone pressed "Load the whole season"?
 
 const PHASE_NOTE = {
-  running: ['wn', 'Kolo běží',
-    'Body se ještě sčítají a pořadí se po každém zápase mění. Definitivní '
-    + 'čísla budou po dopočtu bonusů.'],
-  unchecked: ['wn', 'Čeká se na bonusy',
-    'Zápasy jsou dohrané, ale bonusové body FPL ještě potvrzuje. Čísla se '
-    + 'můžou o kousek posunout.'],
-  final: ['ok', 'Konečné výsledky',
-    'Bonusy jsou připsané, čísla už se nezmění.'],
+  running: ['wn', 'Gameweek live',
+    'Points are still accumulating and the order changes after every match. '
+    + 'Final numbers arrive once bonus is computed.'],
+  unchecked: ['wn', 'Waiting for bonus',
+    'The matches are over, but FPL is still confirming bonus points. The numbers '
+    + 'can still shift a little.'],
+  final: ['ok', 'Final results',
+    'Bonus has been added, the numbers will not change.'],
 };
 
 function newsPanel(){
   const gws = newsGws();
   const sel = NEWS_GW || HUB.cur.id;
   const phase = gwPhase(sel);
-  const [cls, titulek, popis] = PHASE_NOTE[phase];
+  const [cls, title_, labelOf] = PHASE_NOTE[phase];
 
   const prepinac = gws.length > 1
-    ? `<div class="gwnav" role="tablist" aria-label="Kolo novinek">
+    ? `<div class="gwnav" role="tablist" aria-label="Story gameweek">
         ${gws.map(g => {
           const p = gwPhase(g);
           return `<button type="button" role="tab" data-newsgw="${g}"
             aria-selected="${g === sel}"
-            title="${p === 'final' ? 'Konečné výsledky'
-              : p === 'unchecked' ? 'Čeká se na bonusy' : 'Kolo běží'}"
+            title="${p === 'final' ? 'Final results'
+              : p === 'unchecked' ? 'Waiting for bonus' : 'Gameweek live'}"
             >GW${g}${p === 'running' ? '<i class="dot live"></i>'
               : p === 'unchecked' ? '<i class="dot wait"></i>' : ''}</button>`;
         }).join('')}
@@ -2055,13 +1519,13 @@ function newsPanel(){
     : '';
 
   const stav = `<p class="note store ${cls === 'ok' ? 'ok' : ''} phase">
-    <b>${titulek}</b> — ${popis}</p>`;
+    <b>${title_}</b> — ${labelOf}</p>`;
 
-  /* Vítěz kola a lavička mají vlastní cenu nahoře — v seznamu zpráv
-     by to byla tatáž věta podruhé. */
+  /* The gameweek winner and the bench have their own award above — in the
+     list of stories it would be the same sentence twice. */
   const news = buildNews(sel, NEWS_PICKS.get(sel))
-    .filter(x => !/^Kolo \d+$|^Lavička hanby$/.test(x.kicker));
-  const zpravy = news.map(x => `<div class="news ${x.cls}">
+    .filter(x => !/^Gameweek \d+$|^Bench of shame$/.test(x.kicker));
+  const stories = news.map(x => `<div class="news ${x.cls}">
       <div class="kicker">${esc(x.kicker)}</div>
       <div class="head">${x.head}</div>
       ${x.body ? `<div class="body">${x.body}</div>` : ''}
@@ -2069,74 +1533,76 @@ function newsPanel(){
 
   const awards = buildAwards(sel, NEWS_PICKS.get(sel), NEWS_LIVE.get(sel));
   if(!awards.length && !news.length){
-    /* Prázdné kolo neznamená prázdný panel: síň slávy je součet celé
-       sezóny a s vybraným kolem nemá nic společného. Dřív mizela spolu
-       s cenami a vypadalo to, že se ztratila. */
+    /* An empty gameweek does not mean an empty panel: the hall of fame is
+       a season total and has nothing to do with the selected gameweek. It
+       used to disappear along with the awards and looked lost. */
     const cekame = !NEWS_PICKS.has(sel) || !NEWS_LIVE.has(sel);
     return prepinac + stav
       + `<p class="note">${cekame
-          ? 'Načítám sestavy a body tohohle kola…'
-          : 'Za tohle kolo se nepodařilo dopočítat ani ceny, ani zprávy.'}</p>`
+          ? 'Loading this gameweek\'s picks and points…'
+          : 'Neither awards nor stories could be computed for this gameweek.'}</p>`
       + hallPanel();
   }
 
-  /* Dokud se kolo nedopočítá, jsou ceny průběžné. Ať je to vidět na
-     kartě, ne jen v hlášce nad panelem — tabulka síně slávy je bere
-     až po dopočtu bonusů. */
-  const zive = phase !== 'final'
-    ? `<span class="livetag">${phase === 'running' ? 'živě' : 'čeká na bonusy'}</span>`
+  /* Until a gameweek is finalised the awards are provisional. Show that on
+     the card, not just in the message above the panel — the hall of fame
+     only counts them after bonus is in. */
+  const liveTag = phase !== 'final'
+    ? `<span class="livetag">${phase === 'running' ? 'live' : 'awaiting bonus'}</span>`
     : '';
 
-  const ceny = awards.length
-    ? `<div class="secline"><h4>Ceny kola</h4>${zive}</div>
+  const awards_ = awards.length
+    ? `<div class="secline"><h4>Ceny gws</h4>${liveTag}</div>
        <div class="awards">${awards.map(a => {
          const meta = AWARD_META[a.key];
-         const bez = a.val === '—' ? ' bezceny' : '';
-         return `<div class="award ${meta.cls}${bez}">
-           <div class="emoji" aria-hidden="true">${meta.emoji}</div>
-           <div class="title">${meta.title}</div>
-           <div class="who">${a.whoHtml || a.who}</div>
+         const noAward = a.val === '—' ? ' bezceny' : '';
+         return `<div class="award ${meta.cls}${noAward}">
+           <div class="medal" aria-hidden="true">${meta.emoji}</div>
+           <div class="txt">
+             <div class="title">${meta.title}</div>
+             <div class="who">${a.whoHtml || a.who}</div>
+             ${a.sub ? `<div class="sub">${a.sub}</div>` : ''}
+           </div>
            <div class="val">${a.val}</div>
-           ${a.sub ? `<div class="sub">${a.sub}</div>` : ''}
          </div>`;
        }).join('')}</div>`
     : '';
 
-  /* Kapitánské ceny potřebují sestavy a body kola. Když chybí, řekneme
-     to místo toho, abychom tiše ukázali o dvě ceny míň — a rozlišíme,
-     jestli se ještě načítají, nebo jestli dotaz selhal. */
-  const maPicks = NEWS_PICKS.has(sel) && (NEWS_PICKS.get(sel) || []).length;
-  const maLive = NEWS_LIVE.has(sel) && NEWS_LIVE.get(sel);
+  /* Captain awards need the gameweek's picks and points. When they are
+     missing, say so instead of quietly showing two awards fewer — and
+     distinguish still loading from the request having failed. */
+  const hasPicks = NEWS_PICKS.has(sel) && (NEWS_PICKS.get(sel) || []).length;
+  const hasLive = NEWS_LIVE.has(sel) && NEWS_LIVE.get(sel);
   const chybiPicks = awards.some(a => a.key === 'cap') ? ''
     : (!NEWS_PICKS.has(sel) || !NEWS_LIVE.has(sel))
-      ? '<p class="note">Kapitánské ceny dopočítám po načtení sestav…</p>'
-      : (!maPicks || !maLive)
-        ? `<p class="note">Kapitánské ceny teď nejdou spočítat — nepodařilo se
-            načíst ${!maPicks ? 'sestavy' : 'body hráčů'} tohohle kola.
-            Zkus <b>⟳</b> v hlavičce.</p>`
+      ? '<p class="note">Captain awards will follow once the picks load…</p>'
+      : (!hasPicks || !hasLive)
+        ? `<p class="note">Captain awards cannot be computed right now — the
+            ${!hasPicks ? 'picks' : 'player points'} for this gameweek could not be loaded.
+            Try <b>⟳</b> in the header.</p>`
         : '';
 
-  const zbytek = zpravy
-    ? `<div class="secline"><h4>Co se ještě stalo</h4></div>` + zpravy
+  const zbytek = stories
+    ? `<div class="secline"><h4>What else happened</h4></div>` + stories
     : '';
 
-  return prepinac + stav + ceny + chybiPicks + zbytek + hallPanel();
+  return prepinac + stav + awards_ + chybiPicks + zbytek + hallPanel();
 }
 
-/* Tabulka cen za celou sezónu. Kapitánské sloupce se počítají jen
-   z kol, pro která máme sestavy — tlačítko je dotáhne pro všechna. */
+/* The season-long awards table. The captain columns are computed only
+   from gameweeks we have picks for — the button fetches them all. */
 function hallPanel(){
-  const {rows, kol, pokryto} = hallOfFame();
-  if(kol < 1 || rows.length < 2) return '';
+  const {rows, gwCount, covered} = hallOfFame();
+  if(gwCount < 1 || rows.length < 2) return '';
 
   const SLOUPCE = [
-    ['win', '🏆', 'Výhry'], ['bench', '🪑', 'Smůla'],
-    ['cap', '👑', 'Kapitán'], ['flop', '🤡', 'Propadák'],
+    ['win', '🏆', 'Wins'], ['bench', '🪑', 'Bad luck'],
+    ['cap', '👑', 'Captain'], ['flop', '🤡', 'Flop'],
   ];
   const max = {};
   SLOUPCE.forEach(([k]) => max[k] = Math.max(...rows.map(r => r[k])));
 
-  const hlavicka = SLOUPCE.map(([, e, t]) =>
+  const header = SLOUPCE.map(([, e, t]) =>
     `<th class="c"><span aria-hidden="true">${e}</span>${t}</th>`).join('');
 
   const telo = rows.map(r => `<tr>
@@ -2150,64 +1616,78 @@ function hallPanel(){
       }).join('')}
     </tr>`).join('');
 
-  const chybi = kol - pokryto;
-  const pozn = chybi > 0
-    ? `<p class="note">Kapitánské sloupce mám z ${pokryto} z ${kol} kol —
-        zbytek potřebuje sestavy. ${HALL_ALL ? ''
-          : `<button type="button" class="hallmore" data-hallall="1">Načíst celou sezónu</button>`}</p>`
-    : `<p class="note">Ze všech ${kol} dopočítaných kol sezóny.
-        Zlatě je maximum ve sloupci.</p>`;
+  const missing = gwCount - covered;
+  const pozn = missing > 0
+    ? `<p class="note">The captain columns cover ${covered} of ${gwCount} gameweeks —
+        the rest needs picks. ${HALL_ALL ? ''
+          : `<button type="button" class="hallmore" data-hallall="1">Load the whole season</button>`}</p>`
+    : `<p class="note">From all ${gwCount} finalised gameweeks of the season.
+        Gold marks the maximum in a column.</p>`;
 
-  return `<div class="secline"><h4>Síň slávy</h4></div>
+  return `<div class="secline"><h4>Hall of fame</h4></div>
     <div class="hall"><table>
-      <thead><tr><th>Manažer</th>${hlavicka}</tr></thead>
+      <thead><tr><th>Manager</th>${header}</tr></thead>
       <tbody>${telo}</tbody>
     </table></div>${pozn}`;
 }
 
-/* Přepnutí kola. Sestavy starších kol se stahují až teď — otevření
-   hubu by jinak stálo dotaz za každé kolo sezóny krát počet členů. */
+/* Switching gameweeks. The picks of older gameweeks are only downloaded
+   now — otherwise opening the hub would cost a request per gameweek. */
 async function loadNewsGw(g){
   NEWS_GW = g;
   const host = $('hs-0');
   if(host) host.innerHTML = newsPanel();
 
-  await nactiKolo(g);
+  await loadGwData(g);
   if(NEWS_GW === g && $('hs-0')) $('hs-0').innerHTML = newsPanel();
 }
 
-/* Sestavy a body jednoho kola. `live` je jeden dotaz na kolo, sestavy
-   jeden na člena — proto se tohle nedělá při otevření hubu. */
-async function nactiKolo(g){
+/* One gameweek's picks and points. `live` is one request per gameweek, picks
+   one per member — which is why this is not done when the hub opens. */
+async function loadGwData(g){
+  /* A finished gameweek does not change, so it needs loading once in the
+     life of the league — the archive returns it without a single request
+     to the FPL API. A live gameweek is never served from the archive. */
+  const isFinal = gwPhase(g) === 'final';
+  if(isFinal && !(NEWS_PICKS.has(g) && NEWS_LIVE.get(g))){
+    try{ if(await snapLoad(g, HUB.members)) return; }
+    catch(e){ /* the archive is a convenience, not a condition — go to the API */ }
+  }
+
   if(!NEWS_PICKS.has(g)){
     try{
       NEWS_PICKS.set(g, await pooled(HUB.members,
         m => cached('entry/' + m.entry + '/event/' + g + '/picks/'), 5));
     }catch(e){
-      // Bez sestav prostě nebudou kapitánské ceny. Zbytek panelu
-      // je na nich nezávislý, takže tohle není důvod nic hlásit.
+      // Without picks there simply are no captain awards. The rest of the
+      // panel does not depend on them, so this is nothing to report.
       NEWS_PICKS.set(g, []);
     }
   }
   if(!NEWS_LIVE.has(g)){
-    /* Rozlišujeme „ještě nenačteno“ (klíč v mapě není) od „nepovedlo se“
-       (klíč je, hodnota null). Dřív se ukládalo null v obou případech,
-       takže `has()` vrátilo true a panel schoval i hlášku, která měla
-       říct, proč kapitánské ceny nejsou. */
+    /* Distinguish "not loaded yet" (no key in the map) from "it failed"
+       (key present, value null). This used to store null in both cases, so
+       `has()` returned true and the panel also hid the message that was
+       supposed to say why the captain awards were missing. */
     try{ NEWS_LIVE.set(g, await cached('event/' + g + '/live/')); }
     catch(e){ NEWS_LIVE.set(g, null); }
   }
+
+  /* The gameweek is finished and loaded in full — so it is not downloaded
+     again next time. Saved only here, because earlier it is not certain
+     that we have both halves. */
+  if(isFinal) snapSave(g, HUB.members, NEWS_PICKS.get(g), NEWS_LIVE.get(g));
 }
 
-/* Dotáhne sestavy všech dohraných kol, aby síň slávy měla i kapitány.
-   Je to počet kol × počet členů dotazů, takže to jde jen na kliknutí. */
-async function nactiCelouSezonu(btn){
+/* Fetches the picks of every finished gameweek, so the hall of fame gets
+   captains too. That is gameweeks × members requests, so it is click-only. */
+async function loadWholeSeason(btn){
   HALL_ALL = true;
-  if(btn){ btn.disabled = true; btn.textContent = 'Načítám…'; }
-  const kola = newsGws().filter(g => gwPhase(g) === 'final');
-  for(const g of kola){
-    await nactiKolo(g);
-    if(btn) btn.textContent = `Načítám… ${kola.indexOf(g) + 1}/${kola.length}`;
+  if(btn){ btn.disabled = true; btn.textContent = 'Loading…'; }
+  const gws = newsGws().filter(g => gwPhase(g) === 'final');
+  for(const g of gws){
+    await loadGwData(g);
+    if(btn) btn.textContent = `Loading… ${gws.indexOf(g) + 1}/${gws.length}`;
   }
   if($('hs-0')) $('hs-0').innerHTML = newsPanel();
 }
@@ -2215,45 +1695,45 @@ async function nactiCelouSezonu(btn){
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('button[data-newsgw]');
   if(btn) loadNewsGw(Number(btn.dataset.newsgw));
-  const vse = ev.target.closest('button[data-hallall]');
-  if(vse) nactiCelouSezonu(vse);
+  const allBtn = ev.target.closest('button[data-hallall]');
+  if(allBtn) loadWholeSeason(allBtn);
 });
 
 function renderHub(){
-  // Sestavy aktuálního kola už HUB načetl — ať se nestahují znovu.
+  // HUB has already loaded the current gameweek's picks — do not refetch.
   if(!NEWS_PICKS.has(HUB.cur.id)) NEWS_PICKS.set(HUB.cur.id, HUB.picks);
   if(NEWS_GW === null) NEWS_GW = HUB.cur.id;
 
-  /* Body hráčů aktuálního kola hub sám o sobě nepotřebuje — dotáhnou
-     se na pozadí a panel se překreslí, až kapitánské ceny půjdou spočítat. */
+  /* The hub does not need the current gameweek's player points itself —
+     they are fetched in the background and the panel redraws once the captain awards can be computed. */
   if(!NEWS_LIVE.has(HUB.cur.id)){
-    nactiKolo(HUB.cur.id).then(() => {
+    loadGwData(HUB.cur.id).then(() => {
       if(NEWS_GW === HUB.cur.id && $('hs-0')) $('hs-0').innerHTML = newsPanel();
     });
   }
 
   const SECS = [
     ['Novinky', newsPanel()],
-    ['Žebříčky', buildBoards()],
-    ['Zdraví kádrů', buildHealth()],
-    ['Celá liga', buildCollective()],
+    ['Leaderboards', buildBoards()],
+    ['Squad health', buildHealth()],
+    ['Whole league', buildCollective()],
   ];
 
   $('hubout').innerHTML = `
     <h2>${esc(CONFIG.leagueName || HUB.st.league.name)} · po ${HUB.cur.id}. kole${info(`${strengthsReady()
-      ? 'Obtížnost počítám z útočné a obranné síly obou týmů, ne z pevného FDR, které '
-        + 'FPL nastaví v srpnu a pak už nemění. Barvy jsou <b>relativní</b> — každé pásmo '
-        + 'dostane zhruba pětinu zápasů.'
+      ? 'Difficulty is computed from the attacking and defensive strength of both teams, not from the fixed FDR '
+        + 'FPL sets in August and never changes. The colours are <b>relative</b> — each band gets '
+        + 'roughly a fifth of the fixtures.'
       : strengthsUsable()
-      ? 'Útočná a obranná síla zatím v datech není, tak počítám z <b>celkové síly týmů</b> '
-        + '(stupnice 1–5) — pořád to rozliší domácí zápas od venkovního, jen hruběji. '
-        + 'Barvy jsou relativní, každé pásmo dostane zhruba pětinu zápasů.'
-      : '<b>Zdroj obtížnosti: oficiální FDR od FPL.</b> Síly týmů, ze kterých počítám '
-        + 'vlastní hodnocení, zatím v datech nejsou vyplněné — FPL je doplní po několika '
-        + 'odehraných kolech a čísla se pak zjemní.'}
-    <b>VELKÁ</b> písmena znamenají domácí zápas,
-    <b>malá</b> venkovní. Dvě zkratky v jednom políčku je double, pomlčka blank.
-    Tabulka je seřazená od nejpříznivějšího programu.`)}</h2>
+      ? 'Attacking and defensive strength are not in the data yet, so this uses <b>overall team strength</b> '
+        + '(a 1–5 scale) — it still tells home from away, just more coarsely. '
+        + 'The colours are relative, each band gets roughly a fifth of the fixtures.'
+      : '<b>Difficulty source: the official FPL FDR.</b> The team strengths my own rating is '
+        + 'computed from are not filled in yet — FPL adds them after a few gameweeks and the '
+        + 'numbers get finer then.'}
+    <b>CAPITALS</b> mean a home fixture,
+    <b>lower case</b> away. Two clubs in one cell is a double, a dash is a blank.
+    The table is sorted from the kindest run of fixtures.`)}</h2>
     <div class="subnav" role="tablist">
       ${SECS.map((s, i) => `<button class="sub-btn" role="tab"
         aria-selected="${i === 0}" data-hs="${i}">${esc(s[0])}</button>`).join('')}
@@ -2277,10 +1757,10 @@ $('hubgo').addEventListener('click', async () => {
 });
 
 
-/* ============ PROGRAM: rozpis, ceny, čipy ============
+/* ============ FIXTURES: schedule, prices, chips ============
 
-   Čtyři pohledy na to, co teprve přijde. Všechny stojí na `fixtures/`
-   a `bootstrap-static/`, takže je to zadarmo — data už máme.
+   Four views of what is still to come. All of them rest on `fixtures/`
+   and `bootstrap-static/`, so they are free — we already have the data.
 */
 
 const PLAN_GWS = 6;
@@ -2291,38 +1771,38 @@ function planStartGw(){
   return nxt ? nxt.id : (cur ? cur.id + 1 : 1);
 }
 
-/* --- 1. Ticker: mřížka klubů × kol, obarvená podle obtížnosti ---
+/* --- 1. Ticker: a grid of clubs × gameweeks, coloured by difficulty ---
 
-   FDR z FPL je statické — nastaví se před sezónou a nemění se, i když
-   tým mezitím spadne na dno. Počítáme proto vlastní z útočné a obranné
-   síly obou týmů, které bootstrap poskytuje a nikdo je nepoužívá. */
-/* Vrací null, dokud FPL síly týmů nedopočítá.
+   FPL's FDR is static — set before the season and never changed, even if
+   a team has since collapsed. So we compute our own from the attacking
+   and defensive strength of both teams, which the bootstrap provides and nobody uses. */
+/* Returns null until FPL has filled in team strengths.
 
-   Na začátku sezóny jsou `strength_attack_*` a `strength_defence_*` nuly.
-   Poměr sil pak vyšel 0, vzorec spadl hluboko pod stupnici a `Math.max(1, …)`
-   všechno srovnal na 1.0 — celá liga vypadala jako samé lehké zápasy.
-   Tichý nesmysl, který vypadal jako platné číslo. */
+   At the start of a season `strength_attack_*` and `strength_defence_*` are
+   zero. The strength ratio then came out as 0, the formula fell far below
+   the scale and `Math.max(1, …)` levelled everything to 1.0 — the whole
+   league looked like nothing but easy fixtures. Silent nonsense that looked like a valid number. */
 function teamStrengths(t, home){
   const att = home ? t.strength_attack_home : t.strength_attack_away;
   const def = home ? t.strength_defence_home : t.strength_defence_away;
   const a = parseFloat(att), d = parseFloat(def);
   if(Number.isFinite(a) && Number.isFinite(d) && a > 0 && d > 0) return {att: a, def: d};
 
-  // Záloha: strength_overall_* na stupnici 1–5. FPL je vyplňuje i v době,
-  // kdy jsou strength_attack_* a strength_defence_* ještě nuly — což platí
-  // celý začátek sezóny. Dřív se v tu chvíli zahodila i tahle čísla a appka
-  // spadla na statické FDR, které nerozliší domácí zápas od venkovního.
+  // Fallback: strength_overall_* on a 1–5 scale. FPL fills these in even when
+  // strength_attack_* and strength_defence_* are still zero — which is the
+  // case for the whole start of a season. These numbers used to be thrown
+  // away too, and the app fell back to the static FDR, which cannot tell home from away.
   const o = parseFloat(home ? t.strength_overall_home : t.strength_overall_away);
   if(!Number.isFinite(o) || o <= 0) return null;
 
-  // Převod na stejné měřítko jako strength_attack_* (kolem 1000–1400),
-  // aby poměr sil v ownFdr() vycházel ve stejném řádu jako s ostrými daty.
+  // Converted to the same scale as strength_attack_* (around 1000–1400), so
+  // that the strength ratio in ownFdr() lands in the same range as with real data.
   const scaled = 1000 + (o - 3) * 110;
   return {att: scaled, def: scaled, approx: true};
 }
 
-/* Máme ostrá čísla útoku a obrany, nebo jedeme na hrubší náhradě?
-   Rozlišujeme to proto, že hláška pod rozpisem má říkat pravdu. */
+/* Do we have real attack and defence numbers, or are we on the coarse
+   fallback? We distinguish so the note under the table can tell the truth. */
 function strengthsReady(){
   return BOOT.teams.every(t => {
     const h = teamStrengths(t, true), a = teamStrengths(t, false);
@@ -2330,41 +1810,41 @@ function strengthsReady(){
   });
 }
 
-/* Dá se z toho vůbec počítat vlastní FDR? Stačí i hrubá záloha. */
+/* Can our own FDR be computed at all? Even the coarse fallback will do. */
 function strengthsUsable(){
   return BOOT.teams.every(t => teamStrengths(t, true) && teamStrengths(t, false));
 }
 
-/* `fallback` je oficiální FDR z rozpisu. Použije se, dokud nejsou k dispozici
-   síly týmů — statická trojka od FPL je pořád lepší než vymyšlená jednička. */
+/* `fallback` is the official FDR from the fixture list. It is used until
+   team strengths exist — a static 3 from FPL still beats an invented 1. */
 function ownFdr(teamId, oppId, home, fallback){
   const t = BOOT.teams.find(x => x.id === teamId);
   const o = BOOT.teams.find(x => x.id === oppId);
   const fb = Number.isFinite(fallback) ? fallback : 3;
   if(!t || !o) return fb;
 
-  // Jak silný je soupeř proti nám: jeho obrana brzdí náš útok a naopak.
+  // How strong the opponent is against us: their defence slows our attack and vice versa.
   const me = teamStrengths(t, home);
   const opp = teamStrengths(o, !home);
   if(!me || !opp) return fb;
 
-  // Poměr sil kolem 1.0 = vyrovnaný zápas. Škálujeme na známou stupnici 1–5.
+  // A strength ratio around 1.0 = an even match. Scaled to the familiar 1–5.
   const ratio = ((opp.def / me.att) + (opp.att / me.def)) / 2;
   const raw = 3 + (ratio - 1) * 7 + (home ? -0.35 : 0.35);
   if(!Number.isFinite(raw)) return fb;
   return Math.max(1, Math.min(5, raw));
 }
 
-/* Prahy pro obarvení se počítají z rozdělení, ne z pevných čísel.
+/* The colour thresholds are computed from the distribution, not fixed.
 
-   Pevné hranice (pod 2.2 zelená, nad 4.1 červená) fungovaly jen náhodou.
-   Síly týmů v bootstrapu se u většiny klubů liší málo, takže se skoro
-   všechny zápasy vešly do jednoho pásma a ticker byl celý stejně zelený.
-   Barevné kódování, které nerozlišuje, je horší než žádné.
+   Fixed bounds (green under 2.2, red over 4.1) only worked by accident.
+   Team strengths in the bootstrap differ little for most clubs, so almost
+   every fixture fell into one band and the ticker was uniformly green.
+   Colour coding that does not distinguish is worse than none.
 
-   Kvintily napříč všemi zápasy v zobrazeném okně zaručí, že každé pásmo
-   dostane zhruba pětinu buněk — obtížnost je tím pádem vždy relativní
-   k tomu, co se v daných kolech reálně hraje. */
+   Quintiles across every fixture in the visible window guarantee each band
+   gets roughly a fifth of the cells — difficulty is therefore always
+   relative to what is actually being played in those gameweeks. */
 let FDR_CUTS = null;
 
 function computeFdrCuts(startGw, n){
@@ -2379,8 +1859,8 @@ function computeFdrCuts(startGw, n){
 
   all.sort((a, b) => a - b);
 
-  // Když se všechny hodnoty rovnají, kvintily nemají co rozdělit a celá
-  // mřížka by vyšla jednobarevně. Radši pevná stupnice než falešné odstíny.
+  // When every value is equal the quintiles have nothing to split and the
+  // whole grid would come out one colour. Better a fixed scale than fake shades.
   if(all[all.length - 1] - all[0] < 0.4){ FDR_CUTS = DEFAULT_CUTS; return FDR_CUTS; }
 
   const q = p => all[Math.min(all.length - 1, Math.floor(all.length * p))];
@@ -2411,7 +1891,7 @@ function buildTicker(){
 
       if(!fx.length){
         cells.push('<td class="fx blank"><span>–</span></td>');
-        sum += 5; count++;     // blank je pro plánování to nejhorší
+        sum += 5; count++;     // a blank is the worst case for planning
         continue;
       }
 
@@ -2448,8 +1928,8 @@ function buildShape(){
   const shape = gwShape(start, PLAN_GWS).filter(x => x.blanks.length || x.doubles.length);
 
   if(!shape.length)
-    return `<p class="note">Následujících ${PLAN_GWS} kol je bez blanků a doublů —
-      každý klub hraje přesně jednou.</p>`;
+    return `<p class="note">The next ${PLAN_GWS} gameweeks have no blanks or doubles —
+      every club plays exactly once.</p>`;
 
   const mine = MY_SQUAD;
 
@@ -2459,7 +1939,7 @@ function buildShape(){
       if(!mine) return names;
       const hit = list.filter(t => BOOT.elements.some(p => p.team === t.id && mine.has(p.id)));
       return names + (hit.length
-        ? ` <b>· týká se tvých: ${hit.map(t => esc(t.short_name)).join(', ')}</b>`
+        ? ` <b>· affects yours: ${hit.map(t => esc(t.short_name)).join(', ')}</b>`
         : '');
     };
 
@@ -2473,25 +1953,25 @@ function buildShape(){
   return cards + ``;
 }
 
-/* --- 3. Predikce změn cen ---
+/* --- 3. Price change predictions ---
 
-   FPL nezveřejňuje algoritmus, ale směr je spolehlivý: rozhoduje čistý
-   příliv převodů vážený tím, kolik lidí hráče drží. Přesný práh neznáme,
-   tak ukazujeme pořadí tlaku, ne jistotu. */
-/* Oficiální predikce zdražení a zlevnění.
+   FPL does not publish the algorithm, but the direction is reliable: what
+   decides is net transfer flow weighted by how many people own the player.
+   We do not know the exact threshold, so we show pressure ranking, not certainty. */
+/* The official rise and fall predictions.
 
-   Dřív se směr odhadoval z čistého přílivu transferů dělených vlastnictvím.
-   Byla to rozumná aproximace, ale FPL to dneska počítá samo a posílá to
+   The direction used to be estimated from net transfers divided by
+   ownership. It was a reasonable approximation, but FPL now computes this
    v bootstrapu:
 
-     price_change_percent        naplněnost ukazatele v procentech
-     price_change_hourly_rate    jak rychle se plní právě teď
+     price_change_percent        how full the meter is, in per cent
+     price_change_hourly_rate    how fast it is filling right now
      price_change_projections    [{offset, projected_percent, likelihood}]
-                                 offset 0/1/2 = dnes / zítra / pozítří,
+                                 offset 0/1/2 = today / tomorrow / the day after,
                                  likelihood −5…+5 = jistota pohybu
-     price_change_locked_until   hráč se do daného času hýbat nemůže
+     price_change_locked_until   the player cannot move before this time
 
-   Bereme oficiální číslo, když existuje — stejně jako u ep_next. */
+   We take the official number when it exists — as with ep_next. */
 function priceMoves(){
   const projFor = (p, offset) =>
     (p.price_change_projections || []).find(x => x.offset === offset) || null;
@@ -2521,19 +2001,19 @@ function priceMoves(){
   return {up, down, ok: scored.length > 0};
 }
 
-/* Jistota pohybu ceny.
+/* Jistota pohybu awards_.
 
-   FPL posílá likelihood v rozsahu −5…+5. Dřív se kreslila jako řada
-   teček, což byl problém hned dvakrát: pět teček vedle čtyř nikdo na
-   první pohled nerozezná a nikde nebylo řečeno, co ta čísla znamenají.
-   Slovo přečteš i koutkem oka.
+   FPL sends a likelihood in the range −5…+5. It used to be drawn as a row
+   of dots, which was a problem twice over: nobody tells five dots from
+   four at a glance, and nowhere was it said what the numbers mean. A word
+   can be read out of the corner of your eye.
 
-   Procenta by tady lhala — likelihood není pravděpodobnost, je to
-   pořadí tlaku na stupnici, kterou FPL nezveřejňuje. Převádíme ho
-   proto na slova, ne na „80 %“. Naplněnost v procentech vedle už
-   v tabulce je a ta procenta jsou skutečná. */
-const LIKE_WORDS = {5: 'jisté', 4: 'skoro jisté', 3: 'pravděpodobné',
-                    2: 'možné', 1: 'nejisté'};
+   Percentages would lie here — likelihood is not a probability, it is a
+   pressure ranking on a scale FPL does not publish. So it is turned into
+   words, not into "80 %". The fill percentage next to it is already in the
+   table and those percentages are real. */
+const LIKE_WORDS = {5: 'certain', 4: 'near certain', 3: 'likely',
+                    2: 'possible', 1: 'uncertain'};
 
 function likeChip(v, kind){
   const n = Math.min(5, Math.abs(v || 0));
@@ -2542,26 +2022,26 @@ function likeChip(v, kind){
   const sipka = v > 0 ? '▲' : '▼';
   const slovo = LIKE_WORDS[n];
   return `<span class="lk ${dir} l${n}" title="${
-    (v > 0 ? 'Zdražení' : 'Zlevnění')} ${kind || ''} — jistota ${n} z 5 podle FPL"
+    (v > 0 ? 'Rise' : 'Fall')} ${kind || ''} — confidence ${n} of 5 according to FPL"
     ><i aria-hidden="true">${sipka}</i>${esc(slovo)}</span>`;
 }
 
-/* Ukazatel naplněnosti. 100 % = pohyb dnes v noci. */
+/* The fill meter. 100 % = a move tonight. */
 function priceMeter(pct, dir){
   const w = Math.max(3, Math.min(100, Math.abs(pct)));
   return `<span class="meter ${dir}" role="img"
-    aria-label="naplněno ${Math.round(Math.abs(pct))} procent"><i style="width:${w}%"></i></span>`;
+    aria-label="${Math.round(Math.abs(pct))} per cent full"><i style="width:${w}%"></i></span>`;
 }
 
 function buildPrices(){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   const mv = priceMoves();
 
-  // Prázdný stav není vysvětlivka — patří na stránku, ne pod „i“.
+  // An empty state is not an explanation — it belongs on the page, not under an "i".
   if(!mv.ok) return `<h3>Pohyby cen</h3>
-    <p class="note">FPL zatím predikce cen neposílá — pole
-    <code>price_change_projections</code> je v datech prázdné. Objeví se
-    obvykle po prvním kole.</p>`;
+    <p class="note">FPL is not sending price predictions yet — the
+    <code>price_change_projections</code> field is empty in the data. It usually
+    appears after the first gameweek.</p>`;
 
   const dl = (BOOT.game_config && BOOT.game_config.settings
               && BOOT.game_config.settings.price_change_deadlines) || [];
@@ -2575,44 +2055,44 @@ function buildPrices(){
       <td>${esc(x.p.web_name)}<span class="sub">${esc(teams[x.p.team].short_name)}</span></td>
       <td class="n">${(x.p.now_cost / 10).toFixed(1)}m</td>
       <td>${priceMeter(x.pct, dir)}<span class="sub">${x.pct.toFixed(0)} %${
-        lock ? ' · zamčeno' : ''}</span></td>
+        lock ? ' · locked' : ''}</span></td>
       <td>${likeChip(x.likeToday, 'dnes v noci')}</td>
-      <td class="hide-s">${likeChip(x.like3, 'do tří dnů')}</td>
+      <td class="hide-s">${likeChip(x.like3, 'within three days')}</td>
     </tr>`;
   };
 
   const tbl = (rows, dir, title, note) => `
     <h3>${title}</h3>
     ${rows.length
-      ? `<table><thead><tr><th></th><th>Hráč</th><th class="n">Cena</th><th>Ukazatel</th>
-         <th>Dnes v noci</th><th class="hide-s">Do 3 dnů</th></tr></thead>
+      ? `<table><thead><tr><th></th><th>Player</th><th class="n">Price</th><th>Meter</th>
+         <th>Tonight</th><th class="hide-s">Within 3 days</th></tr></thead>
          <tbody>${rows.map(x => row(x, dir)).join('')}</tbody></table>`
-      : '<p class="note">Nic výrazného.</p>'}
+      : '<p class="note">Nothing significant.</p>'}
     <p class="note">${note}</p>`;
 
-  return tbl(mv.up, 'up', 'Nejblíž ke zdražení',
-      'Když ho chceš, kup ho dřív — po zdražení zaplatíš o 0,1m víc a při prodeji '
-      + 'dostaneš zpátky jen půlku zisku.')
-    + tbl(mv.down, 'down', 'Nejblíž ke zlevnění',
-      'Zlevnění ti sebere z hodnoty týmu. Pokud ho stejně plánuješ pustit, udělej to teď.')
+  return tbl(mv.up, 'up', 'Closest to a rise',
+      'If you want him, buy early — after a rise you pay 0.1m more and on selling '
+      + 'you only get half the profit back.')
+    + tbl(mv.down, 'down', 'Closest to a fall',
+      'A fall takes value out of your team. If you plan to let him go anyway, do it now.')
     + `<p class="note">Sloupec <b>Dnes v noci</b> je jistota pohybu podle FPL
-       (pětistupňová škála, „jisté“ je nejvyšší), ukazatel vedle je skutečná
-       naplněnost cenového měřidla v procentech. Zvýrazněné řádky jsou hráči z tvé sestavy.${
-       nextDl ? ' Nejbližší změna cen: <b>' + nextDl.toLocaleString('cs-CZ',
+       (a five-step scale, "certain" being the highest); the meter beside it is the real
+       fill of the price gauge in per cent. Highlighted rows are players in your squad.${
+       nextDl ? ' Next price change: <b>' + nextDl.toLocaleString('en-GB',
          {weekday: 'short', hour: '2-digit', minute: '2-digit'}) + '</b>.' : ''}</p>`;
 }
 
 
 async function loadPlan(){
-  $('plmsg').textContent = 'Načítám rozpis…';
+  $('plmsg').textContent = 'Loading fixtures…';
   try{
     if(!BOOT){ [BOOT, FIX] = await Promise.all([api('bootstrap-static/'), api('fixtures/')]); }
     startCountdown();
 
     const start = planStartGw();
-    // Ceny mají od téhle verze vlastní záložku — v Programu se v nich
-    // nedalo vyznat. Doporučení čipů odešlo úplně: potřebovalo načtený
-    // kádr z jiné záložky a když ho nemělo, ukazovalo jen výzvu.
+    // Prices have had their own tab since this version — inside Fixtures
+    // they were impossible to navigate. Chip advice went entirely: it needed
+    // a squad loaded from another tab and without one it only showed a prompt.
     const SECTIONS = [
       ['Rozpis', buildTicker()],
       ['Blanky a doubly', buildShape()],
@@ -2646,54 +2126,56 @@ async function loadPlan(){
 
 
 /* ============================================================
-   HISTORIE MINILIGY
+   LEAGUE HISTORY
 
-   Důležité omezení, které stojí za to znát dopředu: FPL **neposílá
-   pořadí miniligy za minulé sezóny**. Endpoint standings vrací vždy
-   jen tu rozehranou. Co dostat jde, je `past` z entry/{id}/history/ —
-   celkové body a celkové pořadí každého manažera za předchozí sezóny.
+   One important limitation worth knowing up front: FPL **does not send
+   mini-league standings for past seasons**. The standings endpoint always
+   returns the current season. What it does send is `past` from
+   entry/{id}/history/ — each manager's total points and overall rank for
+   previous seasons.
 
-   Tabulka níž je proto sestavená z celkových bodů členů, kteří jsou
-   v lize **dneska**. Není to archiv toho, jak liga tehdy dopadla:
-     · kdo mezitím odešel, tu není,
-     · kdo se přidal loni, má starší sezóny prázdné,
-     · pořadí je přepočítané mezi současnými členy, ne historické.
-   Appka to říká i uživateli — tichý nepřesný archiv by byl horší
-   než žádný.
+   The table below is therefore assembled from the totals of the members
+   who are in the league **today**. It is not an archive of how the league
+   actually finished:
+     · anyone who has since left is missing,
+     · anyone who joined last year has older seasons empty,
+     · the ranking is recomputed among today's members, not historical.
+   The app says so to the user as well — a quietly inaccurate archive would
+   be worse than none.
    ============================================================ */
 
 const HIST_SEASONS = 6;
 
-/* Poskládá matici sezóna × manažer z `past` jednotlivých členů. */
-/* Kdo v dané sezóně za ligu oficiálně nastoupil.
+/* Builds a season × manager matrix from each member's `past`. */
+/* Who officially played for the league in a given season.
 
-   FPL zná jen celkové body každého manažera — netuší, že se liga
-   rozrůstala postupně. Bez tohohle by medaile za ročníky, kdy hráli
-   tři lidi, dostávali i ti, kdo tehdy hráli sami za sebe jinde.
+   FPL only knows each manager's total points — it has no idea the league
+   grew over time. Without this, medals for the years when three people
+   played would also go to those who were playing elsewhere at the time.
 
-   Sezóna, která v CONFIG.officialSeasons není, se počítá pro všechny. */
+   A season missing from CONFIG.officialSeasons counts for everyone. */
 function matchesMember(key, m){
   return String(key) === String(m.entry) || normName(key) === normName(m.player_name);
 }
 
 function officialIn(season, m){
-  // Přišel do ligy až později? Starší sezóny se nepočítají.
-  // Řetězce „2023/24“ jdou porovnávat přímo — abecední pořadí je tu i to časové.
+  // Joined the league later? Older seasons do not count.
+  // Strings like "2023/24" compare directly — alphabetical order is chronological here.
   const since = Object.entries(CONFIG.memberSince || {})
     .find(([k]) => matchesMember(k, m));
   if(since && season < since[1]) return false;
 
-  // Sezóna s pevně danou soupiskou.
+  // A season with a fixed roster.
   const list = (CONFIG.officialSeasons || {})[season];
   if(!list) return true;
   return list.some(x => matchesMember(x, m));
 }
 
-/* Matice sezóna × manažer plus medaile.
+/* The season × manager matrix plus medals.
 
-   Medaile se rozdávají jen mezi těmi, kdo v dané sezóně opravdu hráli —
-   kdo tehdy nebyl v lize, do pořadí nevstupuje ani nedostane poslední
-   místo. */
+   Medals are handed out only among those who really played that season —
+   anyone not in the league then neither enters the ranking nor takes last
+   place. */
 function buildLeagueHistory(members, pasts){
   const seasons = new Set();
   const rows = [];
@@ -2727,8 +2209,8 @@ function buildLeagueHistory(members, pasts){
 
 const MEDAL = {1: '🥇', 2: '🥈', 3: '🥉'};
 
-/* Žebříček trofejí. Řadí se zlatem, pak stříbrem, pak bronzem —
-   jedno první místo je víc než tři druhá. */
+/* The trophy ranking. Sorted by gold, then silver, then bronze — one
+   first place is worth more than three seconds. */
 function trophyTable(rows){
   const score = r => r.medals[1] * 10000 + r.medals[2] * 100 + r.medals[3];
   const winners = rows.filter(r => score(r) > 0).sort((a, b) => score(b) - score(a));
@@ -2739,7 +2221,7 @@ function trophyTable(rows){
       <span class="pos">${i + 1}</span>
       <span class="nm"><b>${esc(r.m.player_name)}</b></span>
       <span class="mdl">${[1, 2, 3].map(k => r.medals[k]
-        ? `<span title="${k}. místo">${MEDAL[k]}<u>${r.medals[k]}</u></span>` : ''
+        ? `<span title="place ${k}">${MEDAL[k]}<u>${r.medals[k]}</u></span>` : ''
       ).join('')}</span>
     </li>`).join('')}</ol>`;
 }
@@ -2751,24 +2233,24 @@ function renderLeagueHistory(members, pasts, myId){
   const {cols, rows, order} = buildLeagueHistory(members, pasts);
 
   if(!cols.length)
-    return `<p class="note">Nikdo z členů ligy nemá v FPL zaznamenanou
-      předchozí sezónu.</p>`;
+    return `<p class="note">No league member has a previous season recorded
+      in FPL.</p>`;
 
   const sorted = rows.slice().sort((a, b) =>
     (b.medals[1] - a.medals[1]) || (b.played - a.played) ||
     cols.reduce((x, c) => x + (b.by[c] ? b.by[c].pts : 0), 0) -
     cols.reduce((x, c) => x + (a.by[c] ? a.by[c].pts : 0), 0));
 
-  /* Buňka nese jen body a medaili. Pořadí a celkový rank šly do title —
-     dřív pod každým číslem stály dva řádky drobného textu a tabulka se
-     kvůli tomu nedala přečíst napříč. */
+  /* A cell carries only points and a medal. Rank and overall rank went into
+     the title — there used to be two lines of small print under every
+     number and the table could not be read across. */
   const cell = (r, c) => {
     const v = r.by[c];
     if(!v) return '<td class="n empty">·</td>';
     const pos = order[c].get(r.m.entry);
-    const host = !pos;   // hrál FPL, ale ne za tuhle ligu
-    const tip = `${v.pts} bodů · ${host ? 'mimo ligu'
-      : pos + '. v lize'}${v.rank ? ' · ' + v.rank.toLocaleString('cs-CZ') + '. celkově' : ''}`;
+    const host = !pos;   // played FPL, but not in this league
+    const tip = `${v.pts} points · ${host ? 'outside the league'
+      : 'ranked ' + pos + ' in the league'}${v.rank ? ' · ' + v.rank.toLocaleString('en-GB') + ' overall' : ''}`;
     return `<td class="n${host ? ' guest' : ''}" title="${esc(tip)}">
       ${pos && pos <= 3 ? `<i class="m">${MEDAL[pos]}</i>` : ''}${v.pts}</td>`;
   };
@@ -2778,24 +2260,24 @@ function renderLeagueHistory(members, pasts, myId){
 
   return `${trophyTable(rows)}
     <table class="hist">
-      <thead><tr><th>Manažer</th>${cols.map(c =>
+      <thead><tr><th>Manager</th>${cols.map(c =>
         `<th class="n">${esc(c.replace('20', ''))}</th>`).join('')}</tr></thead>
       <tbody>${sorted.map(r => `<tr${r.m.entry === myId ? ' class="me"' : ''}>
         <td><b>${esc(r.m.player_name)}</b></td>
         ${cols.map(c => cell(r, c)).join('')}
       </tr>`).join('')}</tbody>
     </table>
-    <p class="note">Čísla jsou celkové body za sezónu; najetím myší uvidíš
-      pořadí. Medaile se počítají jen mezi těmi, kdo v dané sezóně za ligu
+    <p class="note">The numbers are season totals; hover to see the rank.
+      Medals are counted only among those who played for the league that
       nastoupili${off.length
-        ? ` — v ročnících ${esc(off.join(', '))} to byli jen ${
+        ? ` — in ${esc(off.join(', '))} that was only ${
             esc((CONFIG.officialSeasons[off[0]] || []).join(', '))}`
         : ''}${late.length
-        ? `. Později se přidali ${esc(late.map(([k, v]) => k + ' (' + v + ')').join(', '))}`
-        : ''}. Šedé číslo znamená, že člověk tu sezónu hrál FPL, ale mimo
-      tuhle ligu. Tečka, že nehrál vůbec.</p>
-    <p class="note">FPL neposílá pořadí miniligy za minulé sezóny, jen celkové
-      body každého manažera — tabulka je proto dopočtená z lidí, kteří jsou
+        ? `. Later arrivals: ${esc(late.map(([k, v]) => k + ' (' + v + ')').join(', '))}`
+        : ''}. A grey number means the person played FPL that season but
+      outside this league. A dot means they did not play at all.</p>
+    <p class="note">FPL does not send mini-league standings for past seasons,
+      only each manager's totals — so the table is derived from the people who are
       v lize dneska.</p>`;
 }
 
@@ -2805,111 +2287,111 @@ async function loadLeagueHistory(members, myId){
   box.innerHTML = '<div class="skel"><i></i><i></i><i></i><i></i></div>';
 
   try{
-    // Jeden dotaz na člena. U velkých lig by to bylo moc, tak bereme
-    // prvních padesát — víc se stejně do tabulky rozumně nevejde.
+    // One request per member. For big leagues that would be too much, so we
+    // take the first fifty — more does not fit sensibly in the table anyway.
     const subset = members.slice(0, 50);
     const pasts = await pooled(subset,
       m => cached('entry/' + m.entry + '/history/'), 5,
       (done, total) => {
-        box.innerHTML = `<p class="note">Načítám historii… ${done}/${total}</p>`;
+        box.innerHTML = `<p class="note">Loading history… ${done}/${total}</p>`;
       });
 
     const ok = pasts.filter(Boolean).length;
-    if(!ok){ box.innerHTML = '<p class="note">Historii se nepodařilo načíst.</p>'; return; }
+    if(!ok){ box.innerHTML = '<p class="note">The history could not be loaded.</p>'; return; }
 
     box.innerHTML = (ok < subset.length
-        ? `<p class="note">U ${subset.length - ok} členů se historie nenačetla,
-           v tabulce chybí.</p>`
+        ? `<p class="note">History failed to load for ${subset.length - ok} members,
+           so they are missing from the table.</p>`
         : '')
       + renderLeagueHistory(subset, pasts, myId);
   }catch(e){
-    box.innerHTML = `<p class="note">Historii se nepodařilo načíst: ${esc(e.message)}</p>`;
+    box.innerHTML = `<p class="note">The history could not be loaded: ${esc(e.message)}</p>`;
   }
 }
 
 /* ============================================================
-   DIFERENCIÁLY
+   DIFFERENTIALS
 
-   Diferenciál je hráč, kterého skoro nikdo nemá a přitom nosí body.
-   Obojí musí platit zároveň — nízké vlastnictví samo o sobě není
-   přednost, většina nevlastněných hráčů je nevlastněná právem.
+   A differential is a player almost nobody owns who scores anyway. Both
+   halves must hold at once — low ownership on its own is no virtue, most
+   unowned players are unowned for good reason.
 
-   Skóre proto stavíme na dvou složkách:
+   The score therefore has two parts:
 
-     výnos    = projekce mého modelu na příštích 5 kol (počítá rozpis,
-                minutovou jistotu, defenzivní příspěvky i doubly)
-     páka     = jak moc se ti to promítne do pořadí
+     return   = my model's projection over the next 5 gameweeks (it accounts
+                for fixtures, minutes certainty, defensive contributions and doubles)
+     leverage = how much it moves you in the table
 
-   Páka není lineární. Rozdíl mezi 2 % a 12 % vlastnictví je pro tvůj
-   posun v lize mnohem větší než mezi 40 % a 50 %, protože v druhém
-   případě se s tebou hýbe skoro celé pole. Používáme proto
-   1 / sqrt(vlastnictví), useknuté zdola, ať extrémně neznámí hráči
-   s jednou dobrou statistikou neutečou nahoru.
+   Leverage is not linear. The difference between 2 % and 12 % ownership
+   matters far more to your position than between 40 % and 50 %, because in
+   the second case almost the whole field moves with you. So we use
+   1 / sqrt(ownership), clipped from below, so that extremely obscure
+   players with one good stat do not run away with it.
 
-   Nejde o „kup tohohle“. Je to seznam, kde se dívat.
+   This is not "buy him". It is a list of where to look.
    ============================================================ */
 
 const DIFF_GWS = 5;
 
-/* Postupně volnější stropy vlastnictví.
+/* Progressively looser ownership ceilings.
 
-   Původně to byl jeden pevný strop 12 % a tvrdý filtr na minuty. Když se
-   do něj nikdo nevešel, appka napsala „nikdo neprošel filtrem“ a skončila —
-   což je ta nejméně užitečná odpověď, jakou mohla dát. Na začátku sezóny,
-   kdy má většina hráčů pár odehraných minut, se to stávalo skoro vždycky.
+   Originally there was one fixed 12 % ceiling and a hard filter on minutes.
+   When nobody fitted, the app wrote "nobody passed the filter" and stopped —
+   the least useful answer it could give. Early in the season, when most
+   players have a handful of minutes, that happened almost every time.
 
-   Teď se strop uvolňuje, dokud se nenajde aspoň pět jmen, a appka řekne,
-   o kolik musela slevit. Prázdný seznam je horší než seznam s výhradou. */
+   Now the ceiling loosens until at least five names are found, and the app
+   says how far it had to go. An empty list is worse than a list with a caveat. */
 const DIFF_TIERS = [
-  {max: 6,   label: 'pod 6 % vlastnictví'},
-  {max: 12,  label: 'pod 12 % vlastnictví'},
-  {max: 20,  label: 'pod 20 % vlastnictví'},
-  {max: 35,  label: 'pod 35 % vlastnictví'},
-  {max: 101, label: 'bez omezení vlastnictví'},
+  {max: 6,   label: 'under 6 % ownership'},
+  {max: 12,  label: 'under 12 % ownership'},
+  {max: 20,  label: 'under 20 % ownership'},
+  {max: 35,  label: 'under 35 % ownership'},
+  {max: 101, label: 'no ownership limit'},
 ];
 
-/* Jistota minut jako číslo 0–1, ne ano/ne.
+/* Minutes certainty as a number from 0 to 1, not yes/no.
 
-   Tvrdá podmínka na odehrané minuty nefunguje první měsíc sezóny: kdo
-   odehrál dvě kola, má jich málo ze své podstaty, ne proto, že by nehrál.
-   Bereme proto starty vůči odehraným kolům, a když ještě žádné nejsou,
-   opřeme se o cenu — drahý hráč nesedí na lavičce. */
+   A hard condition on minutes played does not work in the first month:
+   someone who has played two gameweeks has few minutes by definition, not
+   because he is out of favour. So we take starts against gameweeks played,
+   and when there are none yet we lean on price — an expensive player does not sit. */
 function minuteConfidence(p, gwPlayed){
-  if(p.status === 'u' || p.status === 'n') return 0;      // odešel, nehraje
-  if(p.status === 'i' || p.status === 's') return 0;      // zraněný, stopka
+  if(p.status === 'u' || p.status === 'n') return 0;      // gone, not playing
+  if(p.status === 'i' || p.status === 's') return 0;      // injured, suspended
 
   const chance = p.chance_of_playing_next_round;
   const chanceMul = chance === null || chance === undefined ? 1 : chance / 100;
   if(chanceMul < 0.5) return 0;
 
   if(gwPlayed < 1){
-    // Sezóna nezačala: minuty ani starty nic neříkají. Cena je hrubý,
-    // ale jediný signál, který v tu chvíli existuje.
+    // The season has not started: minutes and starts say nothing. Price is a
+    // crude signal, but the only one that exists at that point.
     return chanceMul * Math.max(0, Math.min(1, (p.now_cost / 10 - 3.8) / 2.5));
   }
 
   const startRate = (p.starts || 0) / gwPlayed;
   const minRate = p.minutes / (gwPlayed * 90);
 
-  // Starty váží víc než minuty: kdo nastupuje a je střídán, je pořád jistota.
+  // Starts weigh more than minutes: a player who starts and is subbed off is still a certainty.
   const base = Math.min(1, startRate * 0.65 + minRate * 0.55);
   return chanceMul * base;
 }
 
-/* Zpětně kompatibilní tvrdá varianta. */
+/* The backwards-compatible hard variant. */
 function minutesSecure(p, gwPlayed){
   return minuteConfidence(p, gwPlayed) >= 0.6;
 }
 
 function diffScore(p, startGw, ownPct, conf){
   const xp = projectRange(p, startGw, DIFF_GWS);
-  const own = Math.max(1.5, ownPct);        // páka useknutá zdola
+  const own = Math.max(1.5, ownPct);        // leverage clipped from below
   const c = conf === undefined ? 1 : conf;
   return {xp, conf: c, leverage: 1 / Math.sqrt(own), score: (xp / Math.sqrt(own)) * c};
 }
 
-/* Vybere pět jmen a řekne, jak volný strop na to potřebovala.
-   `ownOf` vrací vlastnictví v procentech — globální, nebo v rámci ligy. */
+/* Picks five names and says how loose a ceiling it needed.
+   `ownOf` returns ownership in per cent — global, or within the league. */
 function diffRows(pool, startGw, ownOf, gwPlayed, tiers){
   const scored = pool
     .map(p => {
@@ -2932,7 +2414,7 @@ function diffRows(pool, startGw, ownOf, gwPlayed, tiers){
       used = tier;
       break;
     }
-    // Neúplný výsledek si schováme, kdyby žádný strop nestačil.
+    // Keep an incomplete result in case no ceiling is enough.
     if(fit.length > rows.length){ rows = fit.slice(0, 5); used = tier; }
   }
 
@@ -2940,23 +2422,23 @@ function diffRows(pool, startGw, ownOf, gwPlayed, tiers){
 }
 
 function confLabel(c){
-  return c >= 0.85 ? '<span class="ok-t">jistá</span>'
-       : c >= 0.6  ? 'slušná'
-       : c >= 0.35 ? '<span class="warn-t">kolísá</span>'
+  return c >= 0.85 ? '<span class="ok-t">certain</span>'
+       : c >= 0.6  ? 'decent'
+       : c >= 0.35 ? '<span class="warn-t">varies</span>'
        : '<span class="bad-t">riziko</span>';
 }
 
 function diffTable(res, ownLabel){
   const rows = res.rows || res;
   if(!rows.length)
-    return `<p class="note">V datech zatím není nikdo s nenulovou projekcí —
-      to se stává jen před prvním kolem sezóny.</p>`;
+    return `<p class="note">Nobody in the data has a non-zero projection yet —
+      that only happens before the first gameweek of the season.</p>`;
 
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
 
   return `<table><thead><tr>
-      <th>Hráč</th><th class="n">Cena</th><th class="n">${esc(ownLabel)}</th>
-      <th class="n">Projekce ${DIFF_GWS} kol</th><th class="n">xGI/90</th>
+      <th>Player</th><th class="n">Price</th><th class="n">${esc(ownLabel)}</th>
+      <th class="n">Projekce ${DIFF_GWS} gwCount</th><th class="n">xGI/90</th>
       <th class="n">Minuty</th></tr></thead>
     <tbody>${rows.map(r => {
       const mine = MY_SQUAD && MY_SQUAD.has(r.p.id);
@@ -2964,7 +2446,7 @@ function diffTable(res, ownLabel){
       return `<tr${mine ? ' class="me"' : ''}>
         <td><span class="who">${crest(r.p.team, 'sm')}<b>${esc(r.p.web_name)}</b>
           <em class="sub">${esc(teams[r.p.team].short_name)}</em>
-          ${mine ? '<span class="badge dif">máš</span>' : ''}</span></td>
+          ${mine ? '<span class="badge dif">owned</span>' : ''}</span></td>
         <td class="n">${(r.p.now_cost / 10).toFixed(1)}m</td>
         <td class="n">${r.own.toFixed(1)} %</td>
         <td class="n"><b>${r.xp.toFixed(1)}</b></td>
@@ -2978,80 +2460,80 @@ function buildDifferentials(){
   const startGw = planStartGw();
   const gwPlayed = BOOT.events.filter(e => e.finished).length;
 
-  // --- globální ---
+  // --- global ---
   const g = diffRows(BOOT.elements, startGw,
     p => parseFloat(p.selected_by_percent) || 0, gwPlayed);
 
-  let out = `<h3>Top 5 diferenciálů · celé FPL${info(`Hráči ${esc(g.tier.label)} s nejvyšší projekcí na příštích
-      ${DIFF_GWS} kol.${g.tier.max > 12
-        ? ' <b>Strop jsem musel povolit</b> — pod dvanácti procenty se pět jmen'
-          + ' s rozumnou projekcí nenašlo.'
+  let out = `<h3>Top 5 differentials · all of FPL${info(`Players ${esc(g.tier.label)} with the highest projection for the next
+      ${DIFF_GWS} gwCount.${g.tier.max > 12
+        ? ' <b>The ceiling had to be loosened</b> — under twelve per cent there were not five names'
+          + ' with a sensible projection.'
         : ''}`)}</h3>
     
-    ${diffTable(g, 'Vlastní')}`;
+    ${diffTable(g, 'Owned')}`;
 
-  // --- v rámci miniligy ---
-  out += '<h3>Top 5 diferenciálů · tvoje miniliga</h3>';
+  // --- within the mini-league ---
+  out += '<h3>Top 5 differentials · your mini-league</h3>';
 
   if(!LEAGUE_OWN){
-    out += `<p class="note">Sestavy soupeřů se zatím nenačetly, takže nevím,
-      koho v lize kdo vlastní. Zkus <b>Načíst data znovu</b> v hlavičce.</p>`;
+    out += `<p class="note">The rivals' squads have not loaded, so I do not know
+      who owns whom in the league. Try <b>Reload data</b> in the header.</p>`;
   }else{
     const {owners, n} = LEAGUE_OWN;
     const ownPct = p => ((owners[p.id] || []).length / n) * 100;
 
-    /* V lize se strop měří v lidech, ne v procentech: nejdřív koho nemá
-       nikdo, pak koho má jeden, pak dva. Procenta by u desetičlenné ligy
-       skákala po deseti a stropy by neodpovídaly ničemu srozumitelnému. */
+    /* Inside a league the ceiling is measured in people, not per cent:
+       first who nobody owns, then who one person owns, then two. With a
+       ten-member league percentages would jump by ten and the ceilings
     const tiers = [0, 1, 2, 3].map(k => ({
       max: (k / n) * 100 + 0.01,
-      label: k === 0 ? 'které nemá nikdo v lize'
-           : k === 1 ? 'které má nejvýš jeden soupeř'
-           : `které mají nejvýš ${k} lidi v lize`,
+      label: k === 0 ? 'owned by nobody in the league'
+           : k === 1 ? 'owned by at most one rival'
+           : `owned by at most ${k} people in the league`,
     }));
-    tiers.push({max: 101, label: 'bez ohledu na vlastnictví v lize'});
+    tiers.push({max: 101, label: 'regardless of ownership in the league'});
 
     const l = diffRows(BOOT.elements, startGw, ownPct, gwPlayed, tiers);
 
-    /* Druhá pětice: pod polovinou ligy.
+    /* A second five: under half the league.
 
-       Ostré diferenciály (nikdo / jeden soupeř) jsou často hráči, které
-       nikdo nemá z dobrého důvodu. Pod polovinou ligy je mírnější kategorie:
-       pořád na nich proti půlce soupeřů získáváš, ale výběr je širší
-       a jména známější. Jedno bez druhého dává zkreslený obrázek. */
-    const half = [{max: 50 - 0.01, label: 'které má míň než polovina ligy'}];
+       Sharp differentials (nobody / one rival) are often players nobody
+       owns for good reason. Under half the league is a milder category:
+       you still gain on half your rivals, but the choice is wider and the
+       names better known. One without the other gives a skewed picture. */
+    const half = [{max: 50 - 0.01, label: 'owned by less than half the league'}];
     const h = diffRows(BOOT.elements, startGw, ownPct, gwPlayed, half);
 
     out += `<div class="subnav" role="tablist">
-        <button class="sub-btn" role="tab" aria-selected="true" data-diff="0">Ostré</button>
+        <button class="sub-btn" role="tab" aria-selected="true" data-diff="0">Sharp</button>
         <button class="sub-btn" role="tab" aria-selected="false" data-diff="1">Pod polovinou ligy</button>
       </div>
       <div class="sec" id="diff-0">
-        <p class="note">Hráči, ${esc(l.tier.label)} (${n} manažerů).
-          Tady se pořadí láme nejvíc — na hráči, kterého má celá liga, proti ní
-          nezískáš nic, i kdyby dal hattrick.</p>
+        <p class="note">Players ${esc(l.tier.label)} (${n} managers).
+          This is where the table swings most — a player the whole league owns
+          gains you nothing against them, even with a hat-trick.</p>
         ${diffTable(l, 'V lize')}
       </div>
       <div class="sec" id="diff-1" hidden>
-        <p class="note">Hráči, které má míň než polovina ligy. Mírnější
-          kategorie — proti půlce soupeřů pořád získáváš, ale výběr je širší
-          a rizika menší než u těch, které nemá nikdo.</p>
+        <p class="note">Players owned by less than half the league. A milder
+          category — you still gain on half your rivals, but the choice is wider
+          and the risk lower than with players nobody owns.</p>
         ${diffTable(h, 'V lize')}
       </div>`;
   }
 
-  out += `<p class="note">Řadím podle projekce dělené odmocninou vlastnictví
-    a násobené jistotou minut. Odmocnina proto, že rozdíl mezi 2 % a 12 %
-    znamená pro tvůj posun mnohem víc než mezi 40 % a 50 % — tam se s tebou
-    hýbe skoro celé pole. Sloupec „Minuty“ říká, jak jistý je nástup:
-    hráč s vysokou projekcí, který kolísá, je sázka, ne plán.
-    Není to pokyn ke koupi, je to seznam, kde se dívat.</p>`;
+  out += `<p class="note">Sorted by projection divided by the square root of
+    ownership and multiplied by minutes certainty. The square root because the
+    difference between 2 % and 12 % matters far more to your position than
+    between 40 % and 50 % — there almost the whole field moves with you. The
+    "Minutes" column says how certain a start is: a player with a high projection
+    who varies is a bet, not a plan. It is not an instruction to buy, it is a list of where to look.</p>`;
 
   return out;
 }
 
-/* Přepínač mezi ostrými a mírnějšími ligovými diferenciály.
-   Delegovaně, protože blok se překresluje s celou záložkou Transfery. */
+/* Switching between sharp and milder league differentials.
+   Delegated, because the block is redrawn with the whole tab. */
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('button[data-diff]');
   if(!btn) return;
@@ -3064,27 +2546,27 @@ document.addEventListener('click', ev => {
 });
 
 /* ============================================================
-   ZÁLOŽKA CENY
+   PRICES TAB
 
-   Dřív to byla jedna ze čtyř sekcí v Programu a zapadalo to.
-   Cena je přitom jediná věc v FPL, která se mění každou noc a na
-   kterou se dá reagovat jen dopředu — zaslouží si vlastní místo.
+   This used to be one of four sections inside Fixtures and got lost there.
+   Yet price is the one thing in FPL that changes every night and can only
+   be reacted to in advance — it deserves its own place.
 
-   Tři pohledy:
-     · kdo dnes v noci zdraží nebo zlevní (oficiální projekce),
-     · komu se cena pohnula za poslední kolo (cost_change_event),
-     · největší pohyb od začátku sezóny (cost_change_start).
+   Three views:
+     · who rises or falls tonight (official projections),
+     · whose price moved over the last gameweek (cost_change_event),
+     · the biggest move since the start of the season (cost_change_start).
    ============================================================ */
 
 /* ------------------------------------------------------------
    WATCHLIST
 
-   Sledovaní hráči jsou ti, které ještě nemám, ale chci vědět, kdy
-   se jim pohne cena. Bez toho se na ně člověk musí každý den ptát
-   ručně — a zdražení se pozná až podle toho, že už je pozdě.
+   Watched players are the ones I do not own yet but want to know about
+   when their price moves. Without this you have to check them by hand
+   every day — and a rise is noticed only once it is too late.
 
-   Držíme jen pole ID v localStorage pod klíčem s entry ID, takže
-   po přepnutí týmu má každý svůj seznam. Žádný server, žádný účet.
+   Only an array of IDs is kept in localStorage under a key with the entry
+   ID, so each team has its own list. No server, no account.
    ------------------------------------------------------------ */
 const WATCH_KEY = () => 'fpl_watch:' + (ENTRY_ID || '0');
 let WATCH = null;
@@ -3112,16 +2594,16 @@ function toggleWatch(id){
   return w.has(id);
 }
 
-/* Hvězdička k libovolnému hráči. Obsluha je delegovaná, takže přežije
-   překreslení tabulky. */
+/* A star for any player. The handler is delegated, so it survives a table
+   redraw. */
 function watchStar(id){
-  const on = isWatched(id);
-  return `<button type="button" class="star${on ? ' on' : ''}" data-watch="${id}"
-    aria-pressed="${on}" title="${on ? 'Odebrat ze sledovaných' : 'Sledovat hráče'}"
-    aria-label="${on ? 'Odebrat ze sledovaných' : 'Sledovat hráče'}">${on ? '★' : '☆'}</button>`;
+  const theirs_ = isWatched(id);
+  return `<button type="button" class="star${theirs_ ? ' theirs_' : ''}" data-watch="${id}"
+    aria-pressed="${theirs_}" title="${theirs_ ? 'Remove from watchlist' : 'Watch this player'}"
+    aria-label="${theirs_ ? 'Remove from watchlist' : 'Watch this player'}">${theirs_ ? '★' : '☆'}</button>`;
 }
 
-/* Stav sledovaného hráče v jedné větě — to samé, co potřebuje homepage. */
+/* A watched player's state in one sentence — the same thing Home needs. */
 function watchRows(){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   const projFor = (p, offset) =>
@@ -3145,8 +2627,8 @@ function watchRows(){
 function buildWatch(){
   const rows = watchRows();
 
-  /* Přidávat jde ze seznamu všech hráčů seřazených podle bodů — stejný
-     vzor jako u porovnání dvou hráčů, jen bez druhého selectu. */
+  /* Players are added from the list of everyone sorted by points — the same
+     pattern as the player comparison, just without the second select. */
   const opts = BOOT.elements
     .slice()
     .sort((a, b) => b.total_points - a.total_points)
@@ -3155,37 +2637,37 @@ function buildWatch(){
       (p.now_cost / 10).toFixed(1)}m</option>`).join('');
 
   const adder = `<div class="watchadd">
-    <label>Přidat hráče
-      <input type="search" id="wq" placeholder="Hledej podle jména…" autocomplete="off"
+    <label>Add a player
+      <input type="search" id="wq" placeholder="Search by name…" autocomplete="off"
              role="combobox" aria-expanded="false" aria-controls="wsug"
              aria-autocomplete="list">
       <div class="wsug" id="wsug" role="listbox" hidden></div>
     </label>
-    <label>Nebo vyber ze seznamu
-      <select id="wsel"><option value="">Vyber hráče…</option>${opts}</select>
+    <label>Nebo highlighted ze seznamu
+      <select id="wsel"><option value="">Pick a player…</option>${opts}</select>
     </label>
   </div>`;
 
   if(!rows.length) return `<h3>Watchlist</h3>${adder}
-    <p class="note">Zatím nikoho nesleduješ. Přidej hráče výš, nebo klikni na
-    hvězdičku u kohokoli v tabulkách pohybů cen — pak se ti tady i na úvodní
-    stránce ukáže, jak blízko je jeho cena ke změně.</p>
+    <p class="note">You are not watching anyone yet. Add a player above, or click
+    the star next to anyone in the price movement tables — they will then show up
+    here and on Home with how close their price is to changing.</p>
     ${storageNote('Watchlist')}`;
 
   const dirClass = l => l > 0 ? 'up' : l < 0 ? 'down' : '';
   const stateText = r => {
-    if(r.p.status === 'i') return ['al', 'zraněný'];
-    if(r.p.status === 's') return ['al', 'suspendovaný'];
-    if(r.p.status === 'u' || r.p.status === 'n') return ['al', 'nedostupný'];
+    if(r.p.status === 'i') return ['al', 'injured'];
+    if(r.p.status === 's') return ['al', 'suspended'];
+    if(r.p.status === 'u' || r.p.status === 'n') return ['al', 'unavailable'];
     if(r.chance !== null && r.chance < 100) return ['wn', r.chance + ' %'];
-    return ['ok', 'v pořádku'];
+    return ['ok', 'fine'];
   };
 
-  return `<h3>Watchlist${info(`Hráči, které sleduješ. Ukazatel je naplněnost
-    cenového měřidla podle FPL, sloupec „Dnes v noci“ říká, jak jistý je
-    pohyb ceny při nejbližší změně.`)}</h3>
+  return `<h3>Watchlist${info(`The players you follow. The meter is how full the
+    FPL price gauge is; the "Tonight" column says how certain a price move is at
+    the next change.`)}</h3>
     ${adder}
-    <table><thead><tr><th></th><th>Hráč</th><th class="n">Cena</th>
+    <table><thead><tr><th></th><th>Player</th><th class="n">Price</th>
       <th>Ukazatel</th><th>Dnes v noci</th><th class="hide-s">Stav</th></tr></thead>
     <tbody>${rows.map(r => {
       const [cls, txt] = stateText(r);
@@ -3199,57 +2681,57 @@ function buildWatch(){
         <td class="hide-s ${cls}">${txt}</td>
       </tr>`;
     }).join('')}</tbody></table>
-    <p class="note">Zvýrazněné řádky jsou hráči, které už máš v kádru.</p>
+    <p class="note">Highlighted rows are players already in your squad.</p>
     ${storageNote('Watchlist')}`;
 }
 
-/* Jedna delegovaná obsluha pro všechny hvězdičky v appce. */
+/* One delegated handler for every star in the app. */
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('button[data-watch]');
   if(!btn) return;
-  const on = toggleWatch(btn.dataset.watch);
+  const theirs_ = toggleWatch(btn.dataset.watch);
 
-  // Překreslíme všechny hvězdičky téhož hráče, ne jen tu kliknutou —
-  // stejný hráč bývá zároveň v tabulce pohybů i ve watchlistu.
+  // Redraw every star for the same player, not just the one clicked —
+  // the same player is often in both a movement table and the watchlist.
   document.querySelectorAll(`button[data-watch="${btn.dataset.watch}"]`)
     .forEach(b => {
-      b.textContent = on ? '★' : '☆';
-      b.classList.toggle('on', on);
-      b.setAttribute('aria-pressed', String(on));
+      b.textContent = theirs_ ? '★' : '☆';
+      b.classList.toggle('theirs_', theirs_);
+      b.setAttribute('aria-pressed', String(theirs_));
     });
 
   const sec = $('pr-3');
   if(sec && !sec.hidden) sec.innerHTML = buildWatch(), wireWatch();
 
-  /* Ve Zraněních může hvězdička řádek rovnou vyhodit ze seznamu
-     (zobrazení Sledovaní), takže tabulku překreslíme celou. */
+  /* In Injuries a star can drop the row from the list outright (the
+     Watched view), so the whole table is redrawn. */
   if($('p-inj') && !$('p-inj').hidden && $('injtbl')) drawInj();
 
   drawHome();
 });
 
-/* Vyhledávání a select pro přidání do watchlistu. */
-/* Nabídka jmen pod vyhledávacím polem.
+/* Search and select for adding to the watchlist. */
+/* The list of names under the search field.
 
-   Dřív se hráč přidával rovnou při psaní: po třetím znaku se vzal
-   nejlepší shoda a strčila do watchlistu. Kdo hledal Fernandese, dostal
-   po napsání „fer“ Wieffera a ani se ho nikdo nezeptal.
+   Players used to be added while typing: after the third character the
+   best match was taken and pushed into the watchlist. Anyone looking for
+   Fernandes got Wieffer after typing "fer", and was never asked.
 
-   Teď se shody jen nabídnou. Přidá se ta, na kterou člověk klikne nebo
-   kterou potvrdí Enterem — a dokud nepotvrdí, nestane se nic. */
+   Now the matches are only offered. The one that gets added is the one you
+   click or confirm with Enter — and until you confirm, nothing happens. */
 function watchMatches(text){
   const needle = normName(text || '');
   if(needle.length < 2) return [];
 
   return BOOT.elements
     .map(p => {
-      const jmeno = normName(p.web_name);
+      const name_ = normName(p.web_name);
       const cele = normName(p.first_name + ' ' + p.second_name);
-      // Shoda na začátku jména je skoro vždycky ta hledaná; shoda
-      // uprostřed („fer“ ve „Wieffer“) je až poslední možnost.
-      const rank = jmeno.startsWith(needle) ? 0
+      // A match at the start of a name is almost always the one wanted; a
+      // match in the middle ("fer" in "Wieffer") is the last resort.
+      const rank = name_.startsWith(needle) ? 0
         : cele.split(' ').some(w => w.startsWith(needle)) ? 1
-        : (jmeno + ' ' + cele).includes(needle) ? 2 : null;
+        : (name_ + ' ' + cele).includes(needle) ? 2 : null;
       return rank === null ? null : {p, rank};
     })
     .filter(Boolean)
@@ -3276,13 +2758,13 @@ function wireWatch(){
 
   if(!q || !sug) return;
 
-  let vyber = -1;   // index zvýrazněné nabídky pro ovládání klávesnicí
+  let highlighted = -1;   // index of the highlighted suggestion for keyboard control
 
   const zavri = () => {
     sug.hidden = true;
     sug.innerHTML = '';
     q.setAttribute('aria-expanded', 'false');
-    vyber = -1;
+    highlighted = -1;
   };
 
   const kresli = () => {
@@ -3291,7 +2773,7 @@ function wireWatch(){
 
     const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
     sug.innerHTML = hits.map((h, i) => `<button type="button" role="option"
-      aria-selected="${i === vyber}" data-add="${h.p.id}">
+      aria-selected="${i === highlighted}" data-add="${h.p.id}">
       <b>${esc(h.p.web_name)}</b>
       <span>${esc((teams[h.p.team] || {}).short_name || '')} ·
         ${POS[h.p.element_type]} · ${(h.p.now_cost / 10).toFixed(1)}m</span>
@@ -3300,7 +2782,7 @@ function wireWatch(){
     q.setAttribute('aria-expanded', 'true');
   };
 
-  q.addEventListener('input', () => { vyber = -1; kresli(); });
+  q.addEventListener('input', () => { highlighted = -1; kresli(); });
 
   q.addEventListener('keydown', ev => {
     const opts = [...sug.querySelectorAll('button[data-add]')];
@@ -3309,18 +2791,18 @@ function wireWatch(){
 
     if(ev.key === 'ArrowDown' || ev.key === 'ArrowUp'){
       ev.preventDefault();
-      vyber = ev.key === 'ArrowDown'
-        ? (vyber + 1) % opts.length
-        : (vyber - 1 + opts.length) % opts.length;
-      opts.forEach((b, i) => b.setAttribute('aria-selected', String(i === vyber)));
+      highlighted = ev.key === 'ArrowDown'
+        ? (highlighted + 1) % opts.length
+        : (highlighted - 1 + opts.length) % opts.length;
+      opts.forEach((b, i) => b.setAttribute('aria-selected', String(i === highlighted)));
       return;
     }
 
-    /* Enter bez vybrané nabídky bere první — ale jen když člověk
-       opravdu zmáčkl Enter. Samo se nikdy nic nepřidá. */
+    /* Enter with no suggestion selected takes the first — but only when
+       Enter was really pressed. Nothing is ever added on its own. */
     if(ev.key === 'Enter'){
       ev.preventDefault();
-      const b = opts[vyber >= 0 ? vyber : 0];
+      const b = opts[highlighted >= 0 ? highlighted : 0];
       if(b){ toggleWatch(b.dataset.add); watchRedraw(); }
     }
   });
@@ -3335,8 +2817,8 @@ function wireWatch(){
   q.addEventListener('blur', () => setTimeout(zavri, 150));
 }
 
-/* Hráči, kterým se cena pohnula za poslední kolo.
-   cost_change_event je v desetinách milionu a resetuje se s kolem. */
+/* Players whose price moved during the last gameweek.
+   cost_change_event is in tenths of a million and resets with the gameweek. */
 function recentMovers(){
   const moved = BOOT.elements
     .filter(p => (p.cost_change_event || 0) !== 0)
@@ -3351,8 +2833,8 @@ function recentMovers(){
 function movedTable(list, dir, empty){
   if(!list.length) return `<p class="note">${empty}</p>`;
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
-  return `<table><thead><tr><th>Hráč</th><th class="n">Cena teď</th>
-      <th class="n">Změna</th><th class="n">Vlastní</th></tr></thead>
+  return `<table><thead><tr><th>Player</th><th class="n">Price now</th>
+      <th class="n">Change</th><th class="n">Owned</th></tr></thead>
     <tbody>${list.slice(0, 25).map(p => {
       const d = p.cost_change_event / 10;
       return `<tr${MY_SQUAD && MY_SQUAD.has(p.id) ? ' class="me"' : ''}>
@@ -3367,39 +2849,39 @@ function movedTable(list, dir, empty){
 
 function buildMoved(){
   const mv = recentMovers();
-  return `<h3>Zdražili</h3>
-    ${movedTable(mv.up, 'up', 'Za poslední kolo nikdo nezdražil.')}
-    <h3>Zlevnili${info(`Změna je za <b>poslední kolo</b> (<code>cost_change_event</code>),
-      ne za celou sezónu. Zvýrazněné řádky jsou hráči z tvé sestavy — u těch,
-      kteří zlevnili, ti klesá hodnota týmu.`)}</h3>
-    ${movedTable(mv.down, 'down', 'Za poslední kolo nikdo nezlevnil.')}
+  return `<h3>Risers</h3>
+    ${movedTable(mv.up, 'up', 'Nobody rose during the last gameweek.')}
+    <h3>Fallers${info(`The change is for the <b>last gameweek</b> (<code>cost_change_event</code>),
+      not the whole season. Highlighted rows are players in your squad — the ones
+      who fell are taking value out of your team.`)}</h3>
+    ${movedTable(mv.down, 'down', 'Nobody fell during the last gameweek.')}
     `;
 }
 
 function buildSeason(){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
 
-  /* Dřív se bralo prvních a posledních patnáct z jednoho seřazeného
-     seznamu. Dokud se hýbalo míň než třicet cen, obě tabulky si sáhly
-     do stejné hromádky a v „růstu“ pak seděli hráči, kteří zlevnili —
-     jen proto, že klesli nejmíň.
+  /* This used to take the first and last fifteen from one sorted list. As
+     long as fewer than thirty prices had moved, both tables reached into
+     the same pile and the "risers" contained players who had fallen — just
+     because they had fallen least.
 
-     Každá tabulka si proto filtruje po svém. Když hráčů není deset,
-     zbytek zůstane prázdný: prázdný řádek je poctivější než cizí. */
+     So each table filters for itself. When there are not ten players, the
+     rest stays empty: an empty row is more honest than a foreign one. */
   const TOP = 10;
-  const rostli = BOOT.elements
+  const risers = BOOT.elements
     .filter(p => (p.cost_change_start || 0) > 0)
     .sort((a, b) => b.cost_change_start - a.cost_change_start)
     .slice(0, TOP);
-  const padali = BOOT.elements
+  const fallers = BOOT.elements
     .filter(p => (p.cost_change_start || 0) < 0)
     .sort((a, b) => a.cost_change_start - b.cost_change_start)
     .slice(0, TOP);
 
   const prazdny = `<tr class="empty"><td colspan="4">—</td></tr>`;
 
-  const tbl = list => `<table><thead><tr><th>Hráč</th><th class="n">Start</th>
-      <th class="n">Teď</th><th class="n">Změna</th></tr></thead>
+  const tbl = list => `<table><thead><tr><th>Player</th><th class="n">Start</th>
+      <th class="n">Now</th><th class="n">Change</th></tr></thead>
     <tbody>${list.map(p => {
       const d = p.cost_change_start / 10;
       return `<tr${MY_SQUAD && MY_SQUAD.has(p.id) ? ' class="me"' : ''}>
@@ -3411,26 +2893,26 @@ function buildSeason(){
       </tr>`;
     }).join('') + prazdny.repeat(Math.max(0, TOP - list.length))}</tbody></table>`;
 
-  if(!rostli.length && !padali.length)
-    return '<p class="note">Od začátku sezóny se zatím žádná cena nepohnula.</p>';
+  if(!risers.length && !fallers.length)
+    return '<p class="note">No price has moved since the start of the season.</p>';
 
-  return `<h3>Největší růst</h3>${tbl(rostli)}
-    <h3>Největší propad${info(`Růst hodnoty týmu je dlouhá hra: každé zdražení hráče,
-      kterého držíš, ti přidá 0,1m do rozpočtu — ale při prodeji dostaneš
-      zpátky jen polovinu zisku.`)}</h3>${tbl(padali)}
+  return `<h3>Biggest risers</h3>${tbl(risers)}
+    <h3>Biggest fallers${info(`Growing team value is a long game: every rise of a player
+      you own adds 0.1m to your budget — but on selling you only get half the
+      profit back.`)}</h3>${tbl(fallers)}
     `;
 }
 
 async function loadPrices(){
-  $('prmsg').textContent = 'Načítám…';
+  $('prmsg').textContent = 'Loading…';
   $('prout').innerHTML = '<div class="skel"><i></i><i></i><i></i><i></i></div>';
   try{
     if(!BOOT) BOOT = await api('bootstrap-static/');
 
     const SECTIONS = [
       ['Dnes v noci', buildPrices()],
-      ['Změnili za kolo', buildMoved()],
-      ['Za sezónu', buildSeason()],
+      ['Moved this gameweek', buildMoved()],
+      ['This season', buildSeason()],
       ['Watchlist', buildWatch()],
     ];
 
@@ -3460,27 +2942,27 @@ async function loadPrices(){
 }
 
 /* ============================================================
-   MĚSÍČNÍ TABULKY MINILIGY
+   MONTHLY LEAGUE TABLES
 
-   Bootstrap posílá `phases[]` — Overall a pak jednotlivé měsíce
-   s rozsahem kol. Standings endpoint na ně umí filtrovat přes
+   The bootstrap sends `phases[]` — Overall and then individual months
+   with a gameweek range. The standings endpoint can filter on them via
    ?phase=N.
 
-   Proč to stojí za to: v lize, kterou někdo vede o dvě stě bodů,
-   dá měsíční pořadí ostatním důvod hrát dál. Implementačně je to
-   jeden dotaz navíc.
+   Why it is worth it: in a league someone leads by two hundred points, a
+   monthly table gives everyone else a reason to keep playing. In terms of
+   implementation it is one extra request.
    ============================================================ */
 function mountPhases(leagueId, cur, myId){
   const box = $('phasebox');
   if(!box || !BOOT.phases) return;
 
-  // Overall (id 1) přeskakujeme — to je tabulka v sekci Pořadí.
-  // A měsíce, které ještě nezačaly, taky: prázdná tabulka nikomu nepomůže.
+  // Overall (id 1) is skipped — that is the table in the Standings view.
+  // So are months that have not started: an empty table helps nobody.
   const done = (BOOT.phases || []).filter(ph =>
     ph.id !== 1 && cur && ph.start_event <= cur.id);
 
   if(!done.length){
-    box.innerHTML = '<p class="note">Měsíční tabulky se objeví po prvním dohraném měsíci.</p>';
+    box.innerHTML = '<p class="note">Monthly tables appear after the first completed month.</p>';
     return;
   }
 
@@ -3496,19 +2978,19 @@ function mountPhases(leagueId, cur, myId){
 
       const rows = ((cache[ph.id].standings || {}).results || []);
       box.innerHTML = nav(ph.id) + (rows.length
-        ? `<table><thead><tr><th class="n">#</th><th>Manažer</th>
-             <th class="hide-s">Tým</th><th class="n">Body za měsíc</th></tr></thead>
+        ? `<table><thead><tr><th class="n">#</th><th>Manager</th>
+             <th class="hide-s">Team</th><th class="n">Points this month</th></tr></thead>
            <tbody>${rows.map(m => `<tr${m.entry === myId ? ' class="me"' : ''}>
              <td class="n">${m.rank}</td>
              <td><b>${esc(m.player_name)}</b></td>
              <td class="hide-s" style="color:var(--mute)">${esc(m.entry_name)}</td>
              <td class="n">${m.total}</td></tr>`).join('')}</tbody></table>
-           <p class="note">${esc(ph.name)} = kola ${ph.start_event}–${ph.stop_event}.
-             Body jsou jen za tenhle úsek, ne od začátku sezóny.</p>`
-        : '<p class="note">Pro tenhle měsíc zatím žádná data nejsou.</p>');
+           <p class="note">${esc(ph.name)} = gws ${ph.start_event}–${ph.stop_event}.
+             The points are for this stretch only, not from the start of the season.</p>`
+        : '<p class="note">There is no data for this month yet.</p>');
     }catch(e){
       box.innerHTML = nav(ph.id)
-        + `<p class="note">Měsíční tabulku se nepodařilo načíst: ${esc(e.message)}</p>`;
+        + `<p class="note">The monthly table could not be loaded: ${esc(e.message)}</p>`;
     }
     bind();
   };
@@ -3521,33 +3003,33 @@ function mountPhases(leagueId, cur, myId){
     b.addEventListener('click', () =>
       draw(done.find(x => x.id === Number(b.dataset.ph)))));
 
-  draw(done[done.length - 1]);   // výchozí je poslední rozehraný měsíc
+  draw(done[done.length - 1]);   // the default is the last month in progress
 }
 
 /* ============================================================
-   ZRANĚNÍ
+   INJURIES
 
-   Vlastní záložka pro jedinou otázku, kterou si člověk klade
-   nejčastěji před deadlinem: kdo z mých hráčů je pod otazníkem
-   a koho z ostatních to sundalo.
+   Its own tab for the single question people ask most often before a
+   deadline: which of my players are doubtful and who else has been ruled
+   out.
 
-   Data jsou celá v bootstrapu (status, chance_of_playing_next_round,
-   news) — žádný dotaz navíc, takže záložka není v TAB_INIT a kreslí
-   se z toho, co už appka má.
+   The data is all in the bootstrap (status, chance_of_playing_next_round,
+   news) — no extra request, so the tab is not in TAB_INIT and draws from
+   what the app already has.
 
-   Stav (které zobrazení, hledaný text, řazení) drží INJ. Vstupní
-   pole se překresluje jen jednou při otevření záložky; při psaní se
-   mění pouze tabulka, jinak by po každém písmenu utekl kurzor.
+   The state (which view, the search text, the sort) lives in INJ. The
+   input is only redrawn once when the tab opens; while typing only the
+   table changes, or the cursor would jump after every letter.
    ============================================================ */
-const INJ_VIEWS = [['all', 'Celá liga'], ['squad', 'Můj kádr'],
-                   ['watch', 'Sledovaní']];
+const INJ_VIEWS = [['all', 'Whole league'], ['squad', 'My squad'],
+                   ['watch', 'Watched']];
 
 let INJ = {view: 'all', q: '', key: 'chance', dir: 1};
 
-/* Řádky pro tabulku. Bereme jen hráče, u kterých je co říct:
-   nehrající status nebo šance pod 100 %. Hráč se stoprocentní
-   šancí a poznámkou „returned from injury“ do seznamu zraněných
-   nepatří — ten je zdravý. */
+/* Rows for the table. Only players there is something to say about: a
+   non-playing status or a chance below 100 %. A player with a hundred per
+   cent chance and a note saying "returned from injury" does not belong on
+   an injury list — he is fit. */
 function injAll(){
   if(!BOOT) return [];
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
@@ -3589,8 +3071,8 @@ function injFiltered(){
     chance: (a, b) => a.chance - b.chance,
   }[INJ.key] || ((a, b) => a.chance - b.chance);
 
-  // Sekundární klíč je vždycky vlastnictví: při shodě šance je
-  // zajímavější ten, koho má půlka ligy.
+  // The secondary key is always ownership: on an equal chance, the
+  // interesting one is the player half the league owns.
   return hit.sort((a, b) => (cmp(a, b) * dir) || (b.own - a.own));
 }
 
@@ -3598,11 +3080,11 @@ function injTable(){
   const rows = injFiltered();
 
   if(!rows.length){
-    const proc = INJ.q ? 'Hledání nic nenašlo.'
-      : INJ.view === 'squad' ? 'Nikdo z tvého kádru není hlášený. Zatím.'
-      : INJ.view === 'watch' ? 'Ze sledovaných hráčů nikoho nic netrápí.'
-      : 'V celé lize není nikdo hlášený — to se stává jen v létě.';
-    return `<p class="note">${esc(proc)}</p>`;
+    const reasonText = INJ.q ? 'The search found nothing.'
+      : INJ.view === 'squad' ? 'Nobody in your squad is flagged. For now.'
+      : INJ.view === 'watch' ? 'None of your watched players has a problem.'
+      : 'Nobody in the whole league is flagged — that only happens in summer.';
+    return `<p class="note">${esc(reasonText)}</p>`;
   }
 
   const th = (key, text, cls) =>
@@ -3613,18 +3095,18 @@ function injTable(){
   return `<table>
     <thead><tr>
       <th></th>
-      ${th('name', 'Hráč')}
-      ${th('team', 'Tým', 'hide-s')}
+      ${th('name', 'Player')}
+      ${th('team', 'Team', 'hide-s')}
       <th>Poz</th>
-      ${th('own', 'Vlastní %', 'n hide-s')}
-      ${th('chance', 'Šance', 'n')}
+      ${th('own', 'Owned %', 'n hide-s')}
+      ${th('chance', 'Chance', 'n')}
       <th>Stav</th>
-      <th class="hide-s">Zpráva</th>
+      <th class="hide-s">News</th>
     </tr></thead>
     <tbody>${rows.map(r => `<tr${r.mine ? ' class="me"' : ''}>
       <td>${watchStar(r.p.id)}</td>
       <td><b>${esc(r.p.web_name)}</b>${r.back
-        ? `<span class="injback">zpět ${esc(r.back)}</span>` : ''}</td>
+        ? `<span class="injback">back ${esc(r.back)}</span>` : ''}</td>
       <td class="hide-s">${esc(r.team.short_name)}</td>
       <td>${POS[r.p.element_type]}</td>
       <td class="n hide-s">${r.own.toFixed(1)}</td>
@@ -3632,24 +3114,24 @@ function injTable(){
       <td class="st ${(S[r.p.status] || S.u)[1]}">${(S[r.p.status] || S.u)[0]}</td>
       <td class="hide-s" style="color:var(--mute);font-size:12.5px">${esc(r.p.news || '—')}</td>
     </tr>`).join('')}</tbody></table>
-    <p class="note">Zvýrazněné řádky jsou hráči z tvého kádru. Hvězdičkou
-      si kohokoli přidáš mezi sledované — objeví se pak i na Přehledu
-      a v Cenách.</p>`;
+    <p class="note">Highlighted rows are players in your squad. The star adds
+      anyone to your watchlist — they then show up on Home and in Prices
+      as well.</p>`;
 }
 
-/* Souhrn nad tabulkou: kolik z kádru je mimo a kolik pod otazníkem.
-   Tohle je ta věta, kvůli které sem člověk chodí. */
+/* The summary above the table: how many of the squad are out and how many
+   are doubtful. This is the sentence people come here for. */
 function injSummary(){
   const mine = injAll().filter(r => r.mine);
   const out = mine.filter(r => r.chance === 0).length;
   const dbt = mine.filter(r => r.chance > 0 && r.chance < 100).length;
 
-  if(!MY_SQUAD) return '<p class="note">Zadej ID týmu a uvidíš i svůj kádr.</p>';
-  if(!mine.length) return `<p class="note ok">Tvůj kádr je čistý — nikdo hlášený.</p>`;
+  if(!MY_SQUAD) return '<p class="note">Enter a team ID to see your own squad too.</p>';
+  if(!mine.length) return `<p class="note ok">Your squad is clean — nobody flagged.</p>`;
 
-  return `<p class="note ${out ? 'wn' : ''}">Z tvého kádru ${
-    out ? `<b>${out}</b> ${out === 1 ? 'nehraje' : out < 5 ? 'nehrají' : 'nehraje'}` : 'nikdo nechybí'
-  }${dbt ? ` a <b>${dbt}</b> pod otazníkem` : ''}.</p>`;
+  return `<p class="note ${out ? 'wn' : ''}">In your squad ${
+    out ? `<b>${out}</b> ${out === 1 ? 'player is out' : 'players are out'}` : 'nobody is missing'
+  }${dbt ? ` and <b>${dbt}</b> doubtful` : ''}.</p>`;
 }
 
 function drawInj(){
@@ -3664,7 +3146,7 @@ function loadInjuries(){
   if(!out) return;
 
   if(!BOOT){
-    $('injmsg').textContent = 'Data se ještě načítají. Zkus to za chvilku.';
+    $('injmsg').textContent = 'The data is still loading. Try again in a moment.';
     return;
   }
   $('injmsg').textContent = '';
@@ -3676,8 +3158,8 @@ function loadInjuries(){
           data-inj="${k}">${esc(t)}</button>`).join('')}
     </div>
     <div id="injsum"></div>
-    <input type="search" id="injq" class="injq" placeholder="Hledej hráče nebo tým…"
-      aria-label="Hledat hráče nebo tým" value="${esc(INJ.q)}">
+    <input type="search" id="injq" class="injq" placeholder="Search for a player or team…"
+      aria-label="Search for a player or team" value="${esc(INJ.q)}">
     <div id="injtbl"></div>`;
 
   out.querySelectorAll('button[data-inj]').forEach(b =>
@@ -3693,12 +3175,12 @@ function loadInjuries(){
     drawInj();
   });
 
-  /* Řazení je delegované — hlavičky se překreslují s tabulkou. */
+  /* Sorting is delegated — the headers are redrawn with the table. */
   $('injtbl').addEventListener('click', ev => {
     const th = ev.target.closest('th[data-sort]');
     if(!th) return;
     const key = th.dataset.sort;
-    // Druhé kliknutí na tentýž sloupec otočí směr.
+    // A second click on the same column reverses the direction.
     if(INJ.key === key) INJ.dir = -INJ.dir;
     else { INJ.key = key; INJ.dir = key === 'own' ? -1 : 1; }
     drawInj();

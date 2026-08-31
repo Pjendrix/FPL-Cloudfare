@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 392 520" role="img"
+     aria-label="FPL Squad Check">
+  <!-- Original artwork in the app's aubergine and gold palette. Deliberately
+       not a reproduction of any Premier League or FPL mark. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A0B45"/>
+      <stop offset="1" stop-color="#1A0620"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2D98A"/>
+      <stop offset="1" stop-color="#C99A45"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="38%" r="55%">
+      <stop offset="0" stop-color="#C99A45" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#C99A45" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="392" height="520" rx="18" fill="url(#bg)"/>
+  <rect width="392" height="520" rx="18" fill="url(#glow)"/>
+
+  <!-- Fixture difficulty bands: the same scale the app uses for the ticker. -->
+  <g opacity=".9">
+    <rect x="46" y="86" width="60" height="10" rx="5" fill="#3FCF7F"/>
+    <rect x="112" y="86" width="60" height="10" rx="5" fill="#8FE0B0"/>
+    <rect x="178" y="86" width="60" height="10" rx="5" fill="#E4E7EA"/>
+    <rect x="244" y="86" width="60" height="10" rx="5" fill="#F0A79F"/>
+    <rect x="310" y="86" width="36" height="10" rx="5" fill="#E0574B"/>
+  </g>
+
+  <!-- The check mark, cut from the same bands. -->
+  <defs>
+    <clipPath id="tick">
+      <path d="M120 268 L172 320 L286 196 L314 226 L172 380 L92 296 Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#tick)">
+    <rect x="80"  y="180" width="50" height="220" fill="#3FCF7F"/>
+    <rect x="130" y="180" width="50" height="220" fill="#8FE0B0"/>
+    <rect x="180" y="180" width="50" height="220" fill="#E4E7EA"/>
+    <rect x="230" y="180" width="50" height="220" fill="#F0A79F"/>
+    <rect x="280" y="180" width="50" height="220" fill="#E0574B"/>
+  </g>
+
+  <text x="196" y="150" text-anchor="middle" fill="#8A6E92"
+        font-family="'Space Mono',ui-monospace,monospace" font-size="13"
+        font-weight="700" letter-spacing="7">FANTASY PREMIER LEAGUE</text>
+
+  <text x="196" y="448" text-anchor="middle" fill="url(#gold)"
+        font-family="Archivo,'Arial Narrow',sans-serif" font-size="52"
+        font-weight="800" letter-spacing="-1">SQUAD CHECK</text>
+
+  <text x="196" y="478" text-anchor="middle" fill="#B3A8CE"
+        font-family="Inter,system-ui,sans-serif" font-size="14">
+    Your squad, your mini-league, your fixtures
+  </text>
+</svg>

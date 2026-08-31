@@ -1,52 +1,52 @@
 /* Minileague Squad Check
 
-   Hlavní stylopis. Tokeny palety, chrom (lišta, navigace),
-   panely, tabulky a všechny sekce. Responzivní pravidla tady nejsou —
-   žijí v narrow/small/mobile, aby s nimi mohl hýbat přepínač zobrazení.
+   The main stylesheet. Palette tokens, chrome (bar, navigation), panels,
+   tables and every section. The responsive rules are not here — they live
+   in narrow/small/mobile so the view switch can move them.
    ============================================================ */
 
 :root{
   /* ---------------------------------------------------------------
-     Paleta Premier League. Auberginová #37003C a mátová #00FF87 jsou
-     barvy té soutěže, o které appka je — a skoro nikdo jiný je nepoužívá,
-     protože jsou tak specifické. Předchozí #2b7fff byla systémová modrá,
-     která navíc kolidovala s modrozelenou stupnicí obtížnosti.
+     The Premier League palette. Aubergine #37003C and mint #00FF87 are the
+     colours of the competition this app is about — and almost nobody else
+     uses them, because they are so specific. The previous #2b7fff was a
+     system blue that also clashed with the difficulty scale.
      --------------------------------------------------------------- */
-  --aubergine:#37003C;      /* lišta a navigace — jen chrom, ne plátno */
+  --aubergine:#37003C;      /* bar and navigation — chrome only, not canvas */
   --aubergine-lift:#4B0F52;
 
-  /* Plátno je světlé. Auberginová vypadala na maketě dobře, ale jako pozadí
-     celé stránky z appky udělala tmavý web s bílými okny — přesný opak
-     „Air“ pocitu, na kterém stojí zbytek návrhu. Odstín je vzatý z papíru
-     a jen o tón tmavší, aby se karty daly odlišit bez rámečku. */
+  /* The canvas is light. Aubergine looked good in the mockup, but as a
+     page background it turned the app into a dark website with white
+     windows — the exact opposite of the airy feel the rest of the design
+     rests on. The shade is taken from paper, a tone darker so cards can be
   --sky:#E7E0EA;
-  --sky-deep:#2B0030;       /* hřiště — tam tma sedí, dresy na ní vyniknou */
+  --sky-deep:#2B0030;       /* the pitch — darkness works there, kits stand out */
 
-  --blue:#0086A8;           /* interaktivní prvky; mimo stupnici obtížnosti */
+  --blue:#0086A8;           /* interactive elements; outside the difficulty scale */
   --ink:#1F0A24;
   --charcoal:#1F0A24;
   --white:#ffffff;
-  --haze:#F4F1F5;           /* papír s auberginovým nádechem */
+  --haze:#F4F1F5;           /* paper with a hint of aubergine */
   --line:rgba(55,0,60,.12);
   --line-soft:rgba(55,0,60,.06);
   --mute:#6B3D74;
 
-  --mint-fill:#00FF87;      /* jen výplně, nikdy text — na bílé neprojde */
+  --mint-fill:#00FF87;      /* fills only, never text — it fails on white */
 
-  /* Zlatá a půlnoční modř z plakátu poháru. Vzorkoval jsem je přímo
-     z obrázku, ať vstupní obrazovka a plakát nedrží každý jiný odstín. */
+  /* Gold and midnight blue. They carry the entry screen and the trophy
+     mark, so both hold the same shade rather than one each. */
   --night:#0B0B24; --night-2:#161034; --night-3:#241A52;
   --gold:#CC9C48; --gold-lift:#E8C271; --gold-deep:#8A6524;
   --ok:#00874F;    --ok-bg:#E2F7EC;
   --warn:#9A6200;  --warn-bg:#FDF3E0;   --warn-line:#C98400;
   --alert:#C4004A; --alert-bg:#FDEBF1;
-  --flop:#7A3E9E;           /* kapitánský propadák — mimo stupnici obtížnosti */
+  --flop:#7A3E9E;           /* captain flop — outside the difficulty scale */
 
   /* ---------------------------------------------------------------
-     Stupnice obtížnosti rozpisu — JEDNA definice pro celou appku.
-     Dřív existovala ve třech kopiích (.ticker, .tick3, .fdrleg) a každá
-     barva byla napsaná třikrát. Změna odstínu znamenala hledat na třech
-     místech; teď stačí přepsat tady.
+     The fixture difficulty scale — ONE definition for the whole app.
+     There used to be three copies (.ticker, .tick3, .fdrleg) and every
+     colour was written three times. Changing a shade meant hunting in three
+     places; now it is rewritten here.
      --------------------------------------------------------------- */
   --f1:#3FCF7F; --f1i:var(--f1i);
   --f2:#A8E6C4; --f2i:var(--f2i);
@@ -64,9 +64,9 @@
 }
 *{box-sizing:border-box}
 
-/* .railkey a spol. mají display:flex, což přebíjí výchozí display:none
+/* .railkey and friends have display:flex, which overrides the default
    u atributu [hidden]. Legenda kolejnice se proto zobrazovala i tehdy,
-   když neměla co ukázat. Klasická past — řešíme jednou pro všechny. */
+   with nothing to show. A classic trap — solved once for all of them. */
 [hidden]{display:none!important}
 html,body{margin:0}
 body{
@@ -79,21 +79,21 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 
-/* ---------- vodoznak poháru ----------
+/* ---------- the trophy watermark ----------
 
-   Obsah je vycentrovaný na 1180 px, takže na širokém monitoru zbydou
-   po stranách dva prázdné pruhy. Pohár je zaplní, aniž by se stal
-   obsahem: `position:fixed` znamená, že se při scrollování nehýbe,
-   takže ho oko po chvíli přestane registrovat — což je přesně to,
-   co má vodoznak dělat.
+   The content is centred at 1180 px, so on a wide monitor two empty strips
+   are left at the sides. The trophy fills them without becoming content:
+   `position:fixed` means it does not move while scrolling, so the eye stops
+   registering it after a moment — which is exactly what a watermark should
+   do.
 
-   Je záměrně useknutý okrajem obrazovky. Celý pohár uprostřed pruhu
-   by vypadal jako obrázek, který tam někdo dal; ořezaný působí jako
-   podklad. Ze stejného důvodu je jen jeden, ne dva zrcadlené —
-   symetrie by přitáhla pozornost.
+   It is deliberately cut off by the edge of the screen. A whole trophy in
+   the middle of the strip would look like a picture somebody put there; cropped
+   it reads as backing. For the same reason there is only one, not two
+   mirrored — symmetry would draw attention.
 
-   pointer-events:none je nutnost, ne detail: bez toho by neviditelná
-   vrstva přes půl obrazovky polykala kliknutí. */
+   pointer-events:none is a necessity, not a detail: without it an invisible
+   layer across half the screen would swallow clicks. */
 body::before{
   content:'';
   position:fixed;
@@ -107,40 +107,40 @@ body::before{
   z-index:-1;
 }
 
-/* Na tmavém plátně zlatá ztmavne spolu s pozadím a zmizí úplně.
-   Vyšší krytí to vyrovnává; `screen` pak drží zlatou zlatou místo
-   toho, aby ji podklad stáhl do hněda. */
+/* On a dark canvas gold darkens along with the background and disappears
+   entirely. Higher opacity compensates; `screen` then keeps gold gold rather
+   than letting the backing drag it towards brown. */
 :root[data-theme="dark"] body::before{
   opacity:.12;
   mix-blend-mode:screen;
 }
 .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
 
-/* ---------- horní lišta ---------- */
-/* Tmavá lišta dává appce páteř: bílé karty pak čtou jako papír na stole.
-   Dřív byla hlavička bílá karta na modrém pozadí a splývala s obsahem. */
+/* ---------- top bar ---------- */
+/* A dark bar gives the app a spine: the white cards then read as paper on a
+   desk. The header used to be a white card on a blue background and blended in. */
 .bar{position:sticky;top:0;z-index:20;background:var(--aubergine);color:#fff}
 .bar .wrap{display:flex;align-items:center;gap:14px;height:58px}
 .brand{display:flex;align-items:center;gap:10px;min-width:0;text-decoration:none}
-/* Celé logo má nad pohárem i pod ním text; ve 30 px se z toho stala
-   nečitelná šmouha. V hlavičce je proto samotný pohár (assets/mark.webp),
-   oříznutý z téhož originálu. */
+/* The full logo has text above and below the trophy; at 30 px that became an
+   illegible smudge. So the header carries the trophy alone (assets/mark.webp),
+   cropped from the same original. */
 .brand img{width:34px;height:34px;flex:none;object-fit:contain}
 .brand .tx{font-family:var(--f-disp);font-weight:800;font-size:15px;
   letter-spacing:-.2px;color:#fff;white-space:nowrap;line-height:1.15}
 .brand .tx small{display:block;font-family:var(--f-mono);font-size:8.5px;
   font-weight:700;letter-spacing:3.2px;color:#B98FC2;margin-bottom:-1px}
-/* Základní .who používá tabulka vlastnictví i další seznamy. Když jsem
-   pravidlo zúžil na .bar .who, zbytek zůstal inline a odznak klubu se
-   překrýval s prvním písmenem jména. */
+/* The plain .who is used by the ownership table and other lists. When I
+   narrowed the rule to .bar .who, the rest stayed inline and the club badge
+   overlapped the first letter of the name. */
 .who{display:inline-flex;align-items:center;gap:7px;min-width:0;vertical-align:middle}
 .who b{font-weight:700}
 .bar .who{margin-left:auto;display:flex;align-items:center;gap:9px;
   font-family:var(--f-mono);font-size:11.5px;color:#D9C4DE;min-width:0}
 .bar .who b{color:#fff;font-weight:700;display:flex;align-items:baseline;gap:5px;
   min-width:0;overflow:hidden}
-/* Název týmu se ořízne, iniciály nikdy — v úzké hlavičce je důležitější
-   vědět, čí tým to je, než dočíst jeho jméno. */
+/* The team name is clipped, the initials never — in a narrow header it
+   matters more whose team it is than reading its name to the end. */
 .bar .who b .tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-family:var(--f);font-size:12.5px;max-width:22ch}
 .bar .who b .ini{flex:none;font-family:var(--f-mono);font-size:10.5px;
@@ -149,18 +149,18 @@ body::before{
 .bar .who button{border-color:rgba(255,255,255,.35);color:#fff;background:none}
 .bar .who button:hover{background:rgba(255,255,255,.12)}
 
-/* ---------- vstupní obrazovka ----------
+/* ---------- entry screen ----------
 
-   Dvě věci se předělávaly: bílý nadpis stál na světlém plátně a byl
-   prakticky neviditelný, a formulář byl až 250 px pod ohybem, takže
-   po otevření nebylo vidět, co má člověk vlastně udělat.
+   Two things were reworked: a white heading stood on a light canvas and was
+   practically invisible, and the form was up to 250 px below the fold, so on
+   opening it there was no sign of what to actually do.
 
-   Řešení: vstupní obrazovka je auberginová. Je to „dveře“ — za nimi
-   se appka rozsvítí. Bílý text tím dává smysl a formulář sedí vedle
-   nadpisu, ne pod ním. */
-/* Vstupní obrazovka drží barvy plakátu poháru: půlnoční modř, zlato,
-   světlo shora. Karta je tmavá se zlatým lemem, ne bílá — bílý obdélník
-   vedle toho plakátu vypadal jako cizí prvek nalepený na plakát. */
+   The fix: the entry screen is aubergine. It is the "door" — the app lights
+   up behind it. White text then makes sense and the form sits beside the
+   heading rather than under it. */
+/* The entry screen holds the brand colours: midnight blue, gold, light from
+   above. The card is dark with a gold edge, not white — a white rectangle
+   next to the artwork looked like a foreign element stuck on top. */
 #landing{min-height:100vh;display:flex;align-items:center;padding:36px 0;
   background:
     radial-gradient(120% 80% at 50% -10%, rgba(204,156,72,.20), transparent 62%),
@@ -192,17 +192,17 @@ body::before{
 .gate input,.gate select{background:rgba(255,255,255,.06);color:#fff;
   border-color:rgba(204,156,72,.3)}
 
-/* Rozbalenou nabídku <select> kreslí operační systém, ne naše CSS —
-   a kreslí ji na bílém. Bílá barva textu ze .gate select se do <option>
-   zdědí, takže položky byly bílé na bílém a seznam vypadal prázdný.
-   Barvy proto nastavujeme na <option> zvlášť. */
+/* An expanded <select> menu is drawn by the operating system, not by our CSS
+   — and it draws it on white. The white text colour from .gate select is
+   inherited by <option>, so the items were white on white and the list
+   looked empty. The colours are therefore set on <option> separately. */
 .gate select option{background:#fff;color:#1F0A24}
 .gate select option:checked{background:#241A52;color:#fff}
 .gate input:focus,.gate select:focus{border-color:var(--gold);
   box-shadow:0 0 0 3px rgba(204,156,72,.22)}
 .gate input::placeholder{color:#7E729C}
 
-/* Zlaté tlačítko — jediný zlatý plný prvek na stránce, aby bylo jasné,
+/* The gold button — the only solid gold element on the page, so it is clear
    kam kliknout. */
 .gate button.wide{background:linear-gradient(180deg,var(--gold-lift),var(--gold));
   border-color:var(--gold-deep);color:#2A1E06;font-weight:700}
@@ -234,8 +234,8 @@ button.wide{width:100%}
 button.small{font-size:13px;padding:7px 14px}
 
 /* ---------- navigace v appce ---------- */
-/* Podtržené záložky místo šesti bublin: na mobilu se dřív zalamovaly
-   do dvou řádků a braly celou obrazovku. */
+/* Underlined tabs instead of six bubbles: on mobile they used to wrap onto
+   two lines and take the whole screen. */
 .navbar{background:var(--aubergine);border-bottom:1px solid rgba(255,255,255,.1)}
 .nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
@@ -246,9 +246,9 @@ button.small{font-size:13px;padding:7px 14px}
 .nav button[aria-selected="true"]{color:#fff;border-bottom-color:var(--mint-fill)}
 .nav button:focus-visible{outline-offset:-3px}
 
-/* Odkaz na oficiální FPL. Sedí v liště napravo od záložek, ale záměrně
-   nevypadá jako ony — je to jediné místo v appce, které tě z ní pošle
-   pryč, a to má být vidět dřív, než na to člověk klikne. */
+/* The link to the official FPL. It sits in the bar to the right of the tabs
+   but deliberately does not look like them — it is the one place in the app
+   that sends you away, and that should be visible before it is clicked. */
 .navrow{display:flex;align-items:stretch;gap:10px}
 .navrow .nav{flex:1;min-width:0}
 .navout{flex:none;display:flex;align-items:center;gap:5px;
@@ -274,22 +274,39 @@ h2:first-child{margin-top:0}
 .note{color:var(--mute);font-size:13px;margin:8px 0 0;line-height:1.5}
 #msg,#lmsg,#trmsg,#hubmsg,#plmsg{margin:16px 0;color:var(--warn);font-size:13px}
 
-/* ---------- podsekce ---------- */
-.subnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 20px}
-.sub-btn{border-color:var(--line);color:var(--mute);font-size:12px;padding:6px 14px;
-  border-radius:9999px;background:var(--white)}
-.sub-btn:hover{color:var(--charcoal);background:var(--haze)}
-.sub-btn[aria-selected="true"]{background:var(--charcoal);border-color:var(--charcoal);color:var(--white)}
+/* ---------- podsekce ----------
+   Underlined tabs instead of a row of pills. Pills looked like buttons
+   ("what happens if I click?"), took two rows once there were six of them,
+   and competed for attention with the bottom navigation, which looks the
+   same. A tab with a line is flat, fits on one row and reads as what it is:
+   a switch between views of the same data.
+
+   The line under the whole strip keeps the tabs anchored even when some of
+   odscrolluje mimo obraz. */
+.subnav{display:flex;gap:22px;flex-wrap:nowrap;margin:0 0 18px;
+  border-bottom:1px solid var(--line);overflow-x:auto;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.subnav::-webkit-scrollbar{display:none}
+.sub-btn{flex:0 0 auto;background:none;border:0;border-radius:0;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  padding:8px 0 9px;font-family:var(--f);font-size:13px;font-weight:600;
+  color:var(--mute);white-space:nowrap;cursor:pointer;
+  transition:color .15s,border-color .15s}
+.sub-btn:hover{color:var(--charcoal);background:none}
+.sub-btn[aria-selected="true"]{background:none;color:var(--charcoal);
+  border-bottom-color:var(--gold)}
+.sub-btn:focus-visible{outline:2px solid var(--aubergine);outline-offset:3px;
+  border-radius:4px}
 .sec[hidden]{display:none}
 
-/* ---------- hřiště ----------
-   Trávník místo tmavé plochy. Sekané pruhy a čáry nejsou dekorace: dávají
-   sestavě měřítko, takže se tvar (3-4-3 vs 4-4-2) pozná dřív, než člověk
-   začne počítat karty. Čáry jsou jeden SVG na pozadí — žádné elementy
-   navíc, nic, do čeho by se dalo kliknout.
+/* ---------- the pitch ----------
+   Turf instead of a dark surface. The mown stripes and lines are not
+   decoration: they give the lineup scale, so the shape (3-4-3 vs 4-4-2) is
+   recognised before anyone starts counting cards. The lines are one SVG in
+   the background — no extra elements, nothing that can be clicked.
 
-   Bílá karta na zeleni má vyšší kontrast než na auberginové, takže se
-   dresy daly zmenšit a čísla naopak zvětšit. */
+   A white card on green has more contrast than on aubergine, so the kits
+   could shrink and the numbers grow. */
 .pitch{
   --turf-a:#1E7C40; --turf-b:#1A6E39;
   background:
@@ -302,19 +319,19 @@ h2:first-child{margin-top:0}
 }
 .row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
 
-/* ---------- karta hráče ----------
-   Mřížka s pevnými řádky, ne volné inline prvky. Předtím si každá karta
-   zalomila obsah jinak podle délky jména: body skončily jednou vedle
-   jména a jednou pod ním a zkratka klubu se lepila na příjmení.
+/* ---------- player card ----------
+   A grid with fixed rows, not free inline elements. Before this every card
+   wrapped its content differently depending on name length: the points
+   ended up beside the name on one and under it on another, and the club
 
      dres    44px
-     jméno   17px   — vlastní řádek přes celou šířku, ořez ellipsis
-     zkratka 13px   — pod jménem, ne za ním
-     body    30px   — vždycky stejná pozice
+     name    17px   — its own full-width row, clipped with ellipsis
+     club    13px   — under the name, not after it
+     points  30px   — always in the same position
      minuty  13px
 
-   Díky pevným výškám jsou všechny karty v řadě stejně vysoké i tehdy,
-   když jedna z nich místo bodů hlásí, že se ještě nehrálo. */
+   Thanks to the fixed heights every card in a row is equally tall even when
+   one of them reports that the match has not been played yet. */
 .shirt{
   width:108px;background:var(--white);border-radius:11px;
   border:0;padding:9px 8px 10px;position:relative;
@@ -328,8 +345,8 @@ h2:first-child{margin-top:0}
 .shirt .kit svg{display:block;width:100%;height:auto}
 .shirt .nm{font-family:var(--f-disp);font-size:13.5px;font-weight:600;line-height:1;
   width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* Proložené mono, aby se zkratka četla jako popisek, ne jako pokračování
-   jména. text-indent vyrovná proklad za poslední literou. */
+/* Letter-spaced mono, so the abbreviation reads as a label rather than a
+   continuation of the name. text-indent compensates for the spacing after the last letter. */
 .shirt .tm{font-family:var(--f-mono);font-size:9px;font-weight:700;letter-spacing:.16em;
   color:var(--mute);line-height:1;text-indent:.16em}
 .shirt .fd{font-family:var(--f-mono);font-size:11px;color:var(--mute);line-height:1}
@@ -388,7 +405,7 @@ tr.click:hover td{background:var(--haze)}
 .legend b{color:var(--charcoal);font-weight:600}
 
 
-/* ---------- detail hráče ---------- */
+/* ---------- player detail ---------- */
 .detail{background:var(--haze);border-radius:12px;padding:20px 22px;margin:16px 0}
 .detail .close{float:right;border:0;background:none;color:var(--mute);font-size:20px;
   padding:0 4px;line-height:1;cursor:pointer}
@@ -452,10 +469,17 @@ tr.click:hover td{background:var(--haze)}
 .news .body{font-size:13px;color:var(--mute);margin-top:6px;line-height:1.55}
 .news .body b{color:var(--charcoal);font-weight:600}
 
-/* ---------- ceny kola ----------
-   Čtyři hlavní ceny mají vlastní kartu s emoji, jménem a velkým číslem.
-   Barvu nese --accent, kterou nastavuje třída konkrétní ceny; zbytek
-   pravidel je pro všechny stejný, ať se nový award přidává jedním řádkem. */
+/* ---------- gameweek awards ----------
+   Four awards as rows under each other, not columns side by side. Columns
+   looked more trophy-like, but for an award shared by several people the
+   names wrapped into a narrow ribbon and the card grew to twice the height.
+   In a row there is space for names and the numbers line up, so they can be
+   compared by reading down.
+
+
+   The colour comes from --accent, set by each award's own class; the rest of
+   the rules are the same for all of them, so a new award is added with one
+   line. */
 .secline{display:flex;align-items:center;gap:10px;margin:22px 0 11px}
 .secline:first-child{margin-top:0}
 .secline h4{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
@@ -465,31 +489,40 @@ tr.click:hover td{background:var(--haze)}
   font-weight:700;color:var(--warn);background:var(--warn-bg);
   border-radius:20px;padding:2px 9px;white-space:nowrap}
 
-.awards{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:4px}
-.award{position:relative;border:1px solid var(--line);border-radius:12px;
-  padding:14px 13px 13px;background:var(--haze);overflow:hidden}
-.award::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;
+/* One frame around all the awards, with a hairline between rows inside — a
+   set of trophies, not four unrelated cards. */
+.awards{border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  margin-bottom:4px;background:var(--white)}
+.award{position:relative;display:flex;align-items:center;gap:11px;
+  padding:11px 13px;border-bottom:1px solid var(--line-soft)}
+.award:last-child{border-bottom:0}
+/* A colour strip on the edge of the row. Carried by ::before so it takes no
+   space in the flex layout and does not shift the text. */
+.award::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
   background:var(--accent)}
-.award .emoji{font-size:25px;line-height:1;margin-bottom:6px}
-.award .title{font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+.award .medal{flex:none;width:32px;height:32px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  background:color-mix(in srgb,var(--accent) 12%,var(--white))}
+.award .txt{flex:1;min-width:0}
+.award .title{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
   color:var(--accent);font-weight:700}
-.award .who{font-size:15.5px;font-weight:600;line-height:1.2;margin:5px 0 2px}
-.award .val{font-family:var(--f-mono);font-size:21px;font-weight:700;
+.award .who{font-size:14px;font-weight:600;line-height:1.25}
+.award .val{flex:none;font-family:var(--f-mono);font-size:19px;font-weight:700;
   color:var(--accent);line-height:1.1}
-.award .sub{font-size:11.5px;color:var(--mute);line-height:1.4;margin-top:5px}
+.award .sub{font-size:11.5px;color:var(--mute);line-height:1.4;margin-top:3px}
 .award .sub b{color:var(--charcoal);font-weight:600}
 .award.a-win{--accent:var(--ok)}
 .award.a-bench{--accent:var(--alert)}
 .award.a-cap{--accent:var(--gold-deep)}
 .award.a-flop{--accent:var(--flop)}
-/* Neudělená cena nesmí vypadat jako výhra — zůstane jí jen ikona
-   a vysvětlení, barva i velké číslo zšednou. */
-.award.bezceny{--accent:var(--mute)}
-.award.bezceny .emoji{filter:grayscale(1);opacity:.5}
+/* An award that was not given must not look like a win — only the icon and
+   the explanation stay, the colour and the big number go grey. */
+.award.bezceny{--accent:var(--mute);background:var(--haze)}
+.award.bezceny .medal{filter:grayscale(1);opacity:.5}
 .award.bezceny .who{color:var(--mute);font-weight:500}
-.award.bezceny .val{font-size:17px;opacity:.6}
+.award.bezceny .val{font-size:15px;opacity:.6}
 
-/* ---------- síň slávy ---------- */
+/* ---------- hall of fame ---------- */
 .hall{border:1px solid var(--line);border-radius:12px;overflow:hidden;
   margin-bottom:8px}
 .hall table{border-collapse:collapse;width:100%;font-size:13px}
@@ -532,10 +565,10 @@ tr.click:hover td{background:var(--haze)}
 
 
 
-/* ---------- odpočet do deadlinu ---------- */
-/* Odpočet byl monospace 11,5 px na fialové — nečitelný přesně ve chvíli,
-   kdy na něm nejvíc záleží. Teď je to dvouřádkový štítek: malý popisek
-   nahoře, velké číslo dole, a zlatý lem, aby se odlišil od navigace. */
+/* ---------- deadline countdown ---------- */
+/* The countdown used to be 11.5 px monospace on purple — illegible at
+   exactly the moment it matters most. Now it is a two-line label: a small
+   caption on top, a big number below, and a gold edge to set it apart from the navigation. */
 .cd{display:inline-flex;flex-direction:column;justify-content:center;
   padding:4px 14px;border-radius:10px;white-space:nowrap;line-height:1.1;
   background:rgba(255,255,255,.08);border:1px solid rgba(204,156,72,.42);
@@ -551,7 +584,7 @@ tr.click:hover td{background:var(--haze)}
 .cd.live{background:rgba(0,255,135,.14);border-color:var(--mint-fill)}
 .cd.live .lbl{color:var(--mint-fill)}
 
-/* ---------- kapitánská doporučení ---------- */
+/* ---------- captain recommendations ---------- */
 .capbar{display:grid;gap:8px;margin:12px 0}
 .capopt{
   display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:12px;
@@ -567,7 +600,7 @@ tr.click:hover td{background:var(--haze)}
 .capopt .xp span{display:block;font-family:var(--f);font-size:11px;
   font-weight:500;color:var(--mute)}
 
-/* ---------- návrh na prohození jedenáctky ---------- */
+/* ---------- suggested XI swap ---------- */
 .swap{display:grid;gap:6px;margin:12px 0}
 .swap>div{padding:9px 13px;border-radius:var(--r-btn);font-size:13px}
 .swap .in{background:var(--ok-bg);color:var(--ok)}
@@ -598,7 +631,7 @@ tr.click:hover td{background:var(--haze)}
 .shape .bl{color:var(--alert)}
 .shape .db{color:var(--ok)}
 
-/* ---------- čipy ---------- */
+/* ---------- chips ---------- */
 .tag.bb{background:var(--ok-bg);color:var(--ok)}
 .tag.tc{background:rgba(43,127,255,.12);color:var(--blue)}
 .tag.fh{background:var(--warn-bg);color:var(--warn)}
@@ -615,7 +648,7 @@ tr.me{background:rgba(63,191,127,.09)}
 .cand .gain.maybe b{color:var(--warn)}
 .cand .gain.no b{color:var(--alert)}
 
-/* ---------- porovnání hráčů ---------- */
+/* ---------- player comparison ---------- */
 button.cmp{
   border:1px solid var(--line);background:var(--white);color:var(--mute);
   border-radius:var(--r-in);font-size:12px;line-height:1;padding:3px 6px;
@@ -642,7 +675,7 @@ button.cmp.on{background:var(--blue);border-color:var(--blue);color:var(--white)
 
 
 
-/* ---------- diagnostika hledání náhrad ---------- */
+/* ---------- replacement search diagnostics ---------- */
 .near{margin:10px 0}
 .near>b{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;font-weight:600}
 details.why{margin-top:10px;font-size:12px}
@@ -653,7 +686,7 @@ table.funnel td{padding:4px 10px 4px 0;border:0}
 table.funnel td.n{font-family:var(--f-mono);text-align:right;width:50px}
 table.funnel td.al{color:var(--alert);font-weight:700}
 
-/* ---------- rozbalovací karty transferů ---------- */
+/* ---------- expandable transfer cards ---------- */
 details.issue{padding:0}
 details.issue>summary{
   list-style:none;cursor:pointer;padding:14px 17px;
@@ -677,7 +710,7 @@ details.issue[open]>summary .more::after{content:' — sbalit'}
 }
 .tag.ep{background:rgba(43,127,255,.1);color:var(--blue);font-weight:700}
 
-/* ---------- mřížka statistik podle pozice ---------- */
+/* ---------- stats grid by position ---------- */
 .pstats{
   display:grid;gap:1px;background:var(--line);
   grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
@@ -689,16 +722,16 @@ details.issue[open]>summary .more::after{content:' — sbalit'}
 .pstats .nt{font-size:10px;color:var(--mute);margin-top:1px}
 .cand .l .pstats{margin-top:8px}
 
-/* projekce FPL v detailu hráče */
+/* the FPL projection in player detail */
 .kpis.eprow .v.big{font-size:26px;color:var(--blue)}
 
-/* ---------- živé body v probíhajícím kole ---------- */
-/* Souhrn kola sedí uvnitř hřiště, ne nad ním — je to jeho hlavička.
+/* ---------- live points during a gameweek ---------- */
+/* The gameweek summary sits inside the pitch, not above it — it is its
 
-   Hřiště je tmavé, takže bílá karta by na něm byla cizí obdélník. Místo
-   toho je průsvitná s mátovým lemem: čísla drží kontrast, ale je za nimi
-   pořád vidět podklad. Dole je oddělovací linka a odsazení, aby velké
-   číslo nekolidovalo s první řadou dresů. */
+   The pitch is dark, so a white card would be a foreign rectangle on it.
+   Instead it is translucent with a mint edge: the numbers keep their
+   contrast, but the backing still shows through. Below it a divider and
+   some padding, so the big number does not collide with the first row of kits. */
 .livebar{
   display:flex;flex-wrap:wrap;align-items:center;gap:20px;
   padding:14px 18px 16px;margin:-4px 0 2px;
@@ -721,8 +754,8 @@ details.issue[open]>summary .more::after{content:' — sbalit'}
 .shirt .pts.md{color:var(--charcoal)}
 .shirt .pts.lo{color:var(--mute)}
 .shirt .pts.wait{color:var(--mute);font-weight:700;font-size:19px}
-/* Minuty jsou samostatný řádek pod body — ne <small> uvnitř čísla, jinak
-   by si výšku určoval obsah a řádky by se rozjely. */
+/* The minutes are a separate row under the points — not a <small> inside the
+   number, or the content would set the height and the rows would drift. */
 .shirt .mn{font-family:var(--f-mono);font-size:9.5px;color:var(--mute);line-height:1}
 .shirt .mn.wait{color:var(--warn)}
 .shirt.wait{background:rgba(255,255,255,.68)}
@@ -733,7 +766,7 @@ td.gwpts .wait{color:var(--mute)}
 
 
 
-/* ---------- tabulka náhrad ---------- */
+/* ---------- replacements table ---------- */
 .candhead,.cand2{
   display:grid;
   grid-template-columns:1.6fr .7fr .7fr .8fr .9fr .7fr 40px;
@@ -773,7 +806,7 @@ button.info.on{background:var(--blue);border-color:var(--blue);color:var(--white
 
 
 
-/* ---------- kádr po pozicích ---------- */
+/* ---------- squad by position ---------- */
 .squadlist{
   background:var(--white);border:1px solid var(--line);
   border-radius:var(--r-card);overflow:hidden;margin-top:10px;
@@ -851,14 +884,14 @@ i.mv.down{color:var(--alert)}
 .fdrleg .hint{margin-left:auto}
 
 /* ============================================================
-   Responzivita a preference — jeden blok na podmínku.
-   Dřív byly čtyři samostatné bloky max-width:640px a dva
-   prefers-reduced-motion (jeden s mezerou v podmínce, druhý bez).
+   Responsiveness and preferences — one block per condition.
+   There used to be four separate max-width:640px blocks and two
+   prefers-reduced-motion ones (one with a space in the condition, one without).
    ============================================================ */
 
-/* Responzivní bloky žijí ve vlastních <style media> tagech za tímhle
-   blokem — díky tomu se dají přepínačem zobrazení vynutit nebo vypnout
-   bez duplikace jediného pravidla. */
+/* The responsive blocks live in their own <style media> tags after this one
+   — that is what lets the view switch force them on or off without
+   duplicating a single rule. */
 
 
 
@@ -869,11 +902,11 @@ i.mv.down{color:var(--alert)}
 }
 
 /* ============================================================
-   PODPIS: kolejnice sezóny
-   38 čárek, jedna na kolo. Odehraná plná, aktuální mátová a plní
-   se do deadlinu, budoucí vlásek. Prázdné kolo tvého kádru dostane
-   červenou tečku, dvojité mátovou. Jediné místo, kde je celá sezóna
-   vidět naráz — dřív byly blanky schované v Programu.
+   SIGNATURE: the season rail
+   38 ticks, one per gameweek. Played ones solid, the current one mint and
+   filling up to the deadline, future ones hairlines. A blank for your squad
+   gets a red dot, a double a mint one. The one place where the whole season
+   is visible at once — blanks used to be hidden in Fixtures.
    ============================================================ */
 .rail{background:var(--aubergine-lift)}
 .rail .wrap{display:flex;align-items:flex-end;gap:2px;height:40px;padding-top:19px;
@@ -885,8 +918,8 @@ i.mv.down{color:var(--alert)}
 .gw.past i{background:rgba(255,255,255,.42)}
 .gw.now i{height:11px;background:linear-gradient(90deg,
   var(--mint-fill) var(--fill,0%),rgba(0,255,135,.22) var(--fill,0%))}
-/* Popisek aktuálního kola stojí nad čárkou — proto má .wrap horní
-   odsazení. Bez nowrap a bez místa se „GW2“ uřízlo o navbar. */
+/* The label for the current gameweek sits above its tick — hence the top
+   padding on .wrap. Without nowrap and without room, "GW2" was cut by the navbar. */
 .gw.now::after{content:attr(data-gw);position:absolute;bottom:14px;left:0;
   white-space:nowrap;line-height:1;
   font-family:var(--f-mono);font-size:9.5px;font-weight:700;color:var(--mint-fill)}
@@ -898,7 +931,7 @@ i.mv.down{color:var(--alert)}
 .railkey span{display:flex;align-items:center;gap:5px}
 .railkey i{width:6px;height:6px;border-radius:50%;display:inline-block}
 
-/* ---------- odznaky klubů ---------- */
+/* ---------- club badges ---------- */
 button.small.icon{padding:4px 8px;font-size:14px;line-height:1;min-width:30px}
 
 .crest{width:21px;height:21px;flex:0 0 auto;border-radius:5px;
@@ -907,19 +940,19 @@ button.small.icon{padding:4px 8px;font-size:14px;line-height:1;min-width:30px}
 
 
 /* ---------- ukazatel pohybu ceny ---------- */
-/* Poznámka o tom, kde data leží. Odlišená proužkem, ne barvou pozadí —
-   je to informace, ne varování, a neměla by přebít vlastní obsah. */
+/* A note about where the data comes from. Set apart with a strip, not a
+   background colour — it is information, not a warning, and should not
 .note.store{border-left:2px solid var(--line);padding-left:10px;
   border-radius:0;margin-top:12px}
 .note.store.ok{border-left-color:var(--ok)}
 .lnkbtn.inline{margin:0;font-size:inherit;vertical-align:baseline}
 
-/* Otáčení při načítání. Zastaví se samo, protože třídu sundá finally. */
+/* The loading spin. It stops on its own, because finally removes the class. */
 @keyframes spin{to{transform:rotate(360deg)}}
 button.small.icon.spin{animation:spin 900ms linear infinite}
 button.small.icon:disabled{opacity:.5;cursor:default}
 
-/* ---------- přepínač kol u novinek ---------- */
+/* ---------- gameweek switcher for the stories ---------- */
 .gwnav{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 12px}
 .gwnav button{font-family:var(--f-mono);font-size:11.5px;padding:5px 10px;
   border:1px solid var(--line);background:none;border-radius:var(--r-btn);
@@ -927,25 +960,22 @@ button.small.icon:disabled{opacity:.5;cursor:default}
 .gwnav button:hover{border-color:var(--line-soft);color:var(--charcoal)}
 .gwnav button[aria-selected="true"]{background:var(--aubergine);color:#fff;
   border-color:var(--aubergine)}
-/* Tečka u kola, které ještě není hotové. Barva nese význam, tvar ne —
-   proto má tlačítko navíc title, aby to nebylo jen barevné rozlišení. */
+/* A dot on a gameweek that is not finished yet. The colour carries meaning,
+   the shape does not — so the button also has a title, to avoid relying on colour alone. */
 .gwnav .dot{width:5px;height:5px;border-radius:50%;display:inline-block}
 .gwnav .dot.live{background:var(--alert)}
 .gwnav .dot.wait{background:var(--warn-line)}
 .note.phase{margin:0 0 12px}
 
-/* ---------- přihlášení a sync ---------- */
+/* ---------- session state ---------- */
 .sync{font-family:var(--f-mono);font-size:10.5px;color:#B98FC2;white-space:nowrap}
 button.small.on{border-color:var(--mint-fill);color:var(--mint-fill);
   max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ---------- úvodní přehled ---------- */
-.hhead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
-  flex-wrap:wrap;margin-bottom:14px}
-.hhead h2{margin:0}
-.hhead .note{margin:2px 0 0}
-.hdl{font-family:var(--f-mono);font-size:12px;color:var(--mute);
-  background:var(--haze);border-radius:var(--r-btn);padding:6px 11px;white-space:nowrap}
+/* ---------- home ----------
+   The panel header (a "Home" heading + the deadline) is gone: the section is
+   named by the navigation and the deadline sits in the bar above the
+   content. So the card with the numbers starts right at the top. */
 
 .hcards{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
   margin:0 0 14px}
@@ -974,9 +1004,9 @@ button.small.on{border-color:var(--mint-fill);color:var(--mint-fill);
   text-transform:none;letter-spacing:0}
 .lnkbtn:hover{text-decoration:underline}
 
-/* Řádek přehledu: zkratka klubu, jméno, popis, případně číslo vpravo.
-   Jméno roste, popis se zkracuje — ne naopak, protože bez jména
-   řádek nic neříká. */
+/* A home row: club abbreviation, name, description, optionally a number on
+   the right. The name grows and the description is clipped — not the other
+   way round, because without the name the row says nothing. */
 .hrow{display:flex;align-items:baseline;gap:8px;padding:5px 0;
   border-top:1px solid var(--line-soft);font-size:13px}
 .hrow:first-of-type{border-top:0}
@@ -1006,8 +1036,8 @@ button.small.on{border-color:var(--mint-fill);color:var(--mint-fill);
 .meter.up i{background:var(--ok)}
 .meter.down i{background:var(--alert)}
 
-/* ---------- kostra při načítání ----------
-   Načtení ligy trvá vteřiny a dřív se do té doby nedělo nic. */
+/* ---------- loading skeleton ----------
+   Loading a league takes seconds and until now nothing happened meanwhile. */
 .skel{display:flex;flex-direction:column;gap:9px;margin:14px 0}
 .skel i{display:block;height:14px;border-radius:var(--r-in);
   background:linear-gradient(90deg,var(--haze) 25%,#EAE4EC 37%,var(--haze) 63%);
@@ -1016,10 +1046,10 @@ button.small.on{border-color:var(--mint-fill);color:var(--mint-fill);
 .skel i:nth-child(4){width:74%} .skel i:nth-child(5){width:50%}
 @keyframes shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
 
-/* ---------- plánovač přestupů ---------- */
-/* Kola pod sebou, ne čtyři sloupce vedle sebe. Ve čtyřech úzkých boxech
-   se nedalo přečíst ani jméno hráče a formuláře byly rozbalené všechny
-   najednou — působilo to nahňácaně a nebylo poznat, co po člověku appka chce. */
+/* ---------- monthly and snapshot layout ---------- */
+/* Sections stacked, not four columns side by side. In four narrow boxes not
+   even a player's name could be read and every form was expanded at once —
+   it felt cramped and gave no sign of what the app wanted from you. */
 .plan-rows{display:flex;flex-direction:column;gap:10px;margin:14px 0}
 .pgw{border:1px solid var(--line);border-radius:var(--r-card);background:var(--white);
   padding:13px 16px}
@@ -1061,17 +1091,17 @@ button.small.ghost:hover{border-color:var(--blue);color:var(--blue)}
 .psum .v{font-family:var(--f-disp);font-size:22px;font-weight:800;line-height:1.1}
 .psum .v.neg{color:var(--alert)} .psum .v.pos{color:var(--ok)}
 
-/* ---------- snapshoty a měsíční tabulky ---------- */
+/* ---------- snapshots and monthly tables ---------- */
 .delta{font-family:var(--f-mono);font-size:11px;font-weight:700;margin-left:6px}
 .delta.up{color:var(--ok)} .delta.down{color:var(--alert)} .delta.same{color:var(--mute)}
 .phasenav{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 14px}
 
 
-/* ---------- tmavý režim ----------
-   Vědomě NENÍ na prefers-color-scheme. Appka je navržená jako světlá —
-   barevná stupnice obtížnosti i odznaky klubů čtou na papíře líp než
-   na černé. Tma je proto přepínač, ne automatika; volba se pamatuje
-   v localStorage pod klíčem fpl_theme. */
+/* ---------- dark mode ----------
+   Deliberately NOT on prefers-color-scheme. The app is designed light — the
+   difficulty colour scale and the club badges read better on paper than on
+   black. So dark is a switch, not automatic; the choice is remembered in
+   localStorage under the key fpl_theme. */
 :root[data-theme="dark"]{
     --sky:#1A0620; --sky-deep:#120416;
     --white:#241029; --haze:#2E1634; --charcoal:#F2E9F4; --ink:#F2E9F4;
@@ -1095,11 +1125,11 @@ button.small.ghost:hover{border-color:var(--blue);color:var(--blue)}
   background:linear-gradient(90deg,var(--haze) 25%,#3A1E42 37%,var(--haze) 63%);
   background-size:400% 100%}
 
-/* ---------- žebříčky Top hráčů ---------- */
-/* Čtyři boxy vedle sebe. Osm kategorií se tak zalomí přesně na dva
-   řádky a celá záložka se vejde na jednu obrazovku. Aby se do čtvrtiny
-   šířky vešlo jméno s odznakem a číslem, musel jít dolů řádkový rozestup,
-   velikost písma i odznak — obsah zůstal, jen se zhutnil. */
+/* ---------- top player leaderboards ---------- */
+/* Four boxes side by side. Eight categories then wrap onto exactly two rows
+   and the whole tab fits on one screen. To fit a name with a badge and a
+   number into a quarter of the width, the line height, the type size and the
+   badge all had to come down — the content stayed, it just got denser. */
 .tgrid{display:grid;gap:9px;grid-template-columns:repeat(4,minmax(0,1fr));
   margin:10px 0 20px}
 .tbox{background:var(--haze);border-radius:var(--r-card);padding:12px 12px 10px;
@@ -1116,8 +1146,8 @@ button.small.ghost:hover{border-color:var(--blue);color:var(--blue)}
 .tlist li:first-child{border-top:0}
 .tlist li::before{content:counter(tr);flex:none;width:13px;text-align:right;
   font-family:var(--f-mono);font-size:10px;color:var(--mute)}
-/* Medaile je náhrada čísla, ne přídavek — jinak by u prvních tří
-   stálo „1 🥇“ a řádek by se rozjel o dalších patnáct pixelů. */
+/* The medal replaces the number, it is not an addition — otherwise the first
+   three would read "1 🥇" and the row would grow another fifteen pixels. */
 .tlist li:has(.tmdl)::before{display:none}
 .tmdl{flex:none;width:13px;font-style:normal;font-size:11px;line-height:1;
   text-align:right}
@@ -1133,13 +1163,13 @@ button.small.ghost:hover{border-color:var(--blue);color:var(--blue)}
 .tname:hover b{color:var(--blue);text-decoration:underline}
 .tval{flex:none;font-family:var(--f-mono);font-size:12px;font-weight:700}
 
-/* Mezistupně: čtyři sloupce na 1200px už jsou nečitelné, dva jsou pořád
-   lepší než jeden dlouhý sloupec. */
+/* Intermediate steps: four columns at 1200px are already illegible, two are
+   still better than one long column. */
 @media (max-width:1180px){
   .tgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
-/* ---------- výběr dvou hráčů k porovnání ---------- */
+/* ---------- picking two players to compare ---------- */
 .cmpbar{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;
   align-items:end;margin:12px 0 18px}
 .cmpbar label{display:flex;flex-direction:column;gap:6px;min-width:0;
@@ -1151,7 +1181,7 @@ button.small.ghost:hover{border-color:var(--blue);color:var(--blue)}
 .cmpout{background:var(--haze);border-radius:var(--r-card);padding:18px 20px}
 .cmpout .note:only-child{margin:0}
 
-/* ---------- oprava počtu volných přestupů ---------- */
+/* ---------- free transfer correction ---------- */
 .ftbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   padding:11px 16px;margin:0 0 14px;background:var(--haze);
   border-radius:var(--r-card);font-family:var(--f-mono);
@@ -1160,7 +1190,7 @@ button.small.ghost:hover{border-color:var(--blue);color:var(--blue)}
 .ftbar .pin{width:56px}
 .ftbar .fthint{flex:1 1 240px;font-family:var(--f);font-size:12px}
 
-/* ---------- diferenciály ---------- */
+/* ---------- differentials ---------- */
 .diffs{margin-top:28px;padding-top:22px;border-top:1px solid var(--line)}
 
 /* ---------- historie miniligy ---------- */
@@ -1189,13 +1219,13 @@ table.hist td.guest{color:var(--mute)}
 table.hist td .m{font-style:normal;margin-right:3px}
 table.hist th.n{font-family:var(--f-mono);font-size:11px}
 
-/* ---------- hlavička panelu s tlačítkem vpravo ---------- */
+/* ---------- panel header with a button on the right ---------- */
 .panelhead{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;
   margin-bottom:4px}
 .panelhead .hint{flex:1 1 260px;margin:0}
 .panelhead button{flex:none;margin-top:1px}
 
-/* ---------- nejlehčí los ---------- */
+/* ---------- easiest fixtures ---------- */
 .easygrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
   margin:12px 0 6px}
 .easy{border:1px solid var(--line);border-radius:var(--r-card);padding:13px 15px}
@@ -1220,7 +1250,7 @@ table.hist th.n{font-family:var(--f-mono);font-size:11px}
 .easynone{margin:11px 0 0;padding-top:10px;border-top:1px solid var(--line-soft);
   font-size:12.5px;color:var(--mute)}
 
-/* ---------- tři nejdražší ---------- */
+/* ---------- three most expensive ---------- */
 .pricetop{display:flex;flex-direction:column;gap:2px;margin:12px 0 6px}
 .ptrow{display:grid;grid-template-columns:minmax(0,1.1fr) 60px minmax(0,1.4fr) auto;
   gap:12px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line-soft)}
@@ -1253,40 +1283,38 @@ h2 .i-tip,h3 .i-tip,h4 .i-tip{position:relative;top:-1px}
 .tipbox code{font-family:var(--f-mono);font-size:11.5px;
   background:rgba(55,0,60,.07);padding:1px 4px;border-radius:3px}
 
-/* ---------- mobilní skořápka: výchozí stav ----------
-   Spodní lišta i plachta „Více“ jsou v DOM vždycky, ale zapíná je až
-   blok #mqM. Na desktopu tak neexistují ani vizuálně, ani pro čtečku —
-   a přepínač zobrazení je vypne stejným způsobem jako zbytek mobilních
-   pravidel, bez druhé sady výjimek. */
+/* ---------- mobile shell: default state ----------
+   The bottom bar and the "More" sheet are always in the DOM, but only the
+   #mqM block switches them on. On desktop they exist neither visually nor
+   for a screen reader — and the view switch turns them off the same way as
+   the rest of the mobile rules, without a second set of exceptions. */
 #mnav,#msheet{display:none}
 
-/* Obal tabulek. Na desktopu jen pojistka proti přetečení, na mobilu
-   z něj #mqM udělá vodorovný scroller. Vkládá ho JS, aby se nemusel
-   psát do každé šablony zvlášť. */
+/* The table wrapper. On desktop just insurance against overflow; on mobile
+   #mqM turns it into a horizontal scroller. Inserted by JS so it does not
+   have to be written into every template. */
 .tscroll{max-width:100%}
 
-/* ---------- ceny kola na Přehledu ----------
-   Tytéž karty jako v Hubu, jen bez podtitulku a v užší mřížce: na
-   Přehledu jsou shrnutím, ne hlavním obsahem panelu. Štítek „živě“
-   sedí nad mřížkou, aby nerozbil zarovnání karet. */
+/* ---------- gameweek awards on Home ----------
+   The same cards as in the hub, just without the subtitle and in a narrower
+   grid: on Home they are a summary, not the main content of the panel. The
+   "live" tag sits above the grid so it does not break the card alignment. */
 .hgrid.one{grid-template-columns:1fr}
-/* .livetag měl styl jen uvnitř .secline v Hubu. Na Přehledu žádná
-   .secline není, takže by se z něj stal obyčejný text. */
+/* .livetag was only styled inside .secline in the hub. There is no .secline
+   on Home, so it would have become ordinary text. */
 .hbox.hawards .livetag{display:inline-block;margin:0 0 8px;
   font-size:10px;letter-spacing:.09em;text-transform:uppercase;
   font-weight:700;color:var(--warn);background:var(--warn-bg);
   border-radius:20px;padding:2px 9px;white-space:nowrap}
-.awards.mini{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.awards.mini .award{padding:11px 12px 12px}
-.awards.mini .emoji{font-size:19px}
-.awards.mini .title{font-size:9.5px}
+.awards.mini .award{padding:9px 11px}
+.awards.mini .medal{width:28px;height:28px;font-size:14px}
 .awards.mini .who{font-size:13px}
 .awards.mini .val{font-size:17px}
 
-/* ---------- kádr: po pozicích / celkem ----------
-   V režimu Celkem zmizí skupinové hlavičky a z hlaviček sloupců se
-   stanou tlačítka. Šipka má vlastní místo i když je neaktivní, aby
-   hlavička při řazení neposkočila o pár pixelů do strany. */
+/* ---------- squad: by position / whole squad ----------
+   In the whole-squad view the group headers disappear and the column headers
+   become buttons. The arrow has its own space even when inactive, so the
+   header does not jump sideways a few pixels while sorting. */
 .squadlist.flat .pgroup{display:none}
 .squadlist.flat .prow.benched{background:none}
 
@@ -1301,16 +1329,16 @@ h2 .i-tip,h3 .i-tip,h4 .i-tip{position:relative;top:-1px}
 .phead [data-sort][aria-sort="descending"] .sar::before{content:"\25BC"}
 .phead [data-sort]:not([aria-sort="none"]) .sar{opacity:1}
 
-/* Přepínač sedí těsně nad tabulkou, ne 20 px od ní jako běžná subnav. */
+/* The switch sits right above the table, not 20 px away like a normal subnav. */
 .subnav:has(+ .squadlist){margin-bottom:8px}
 
 /* ---------- H2H ----------
-   Karta zápasu je symetrická mřížka: domácí vlevo, skóre uprostřed,
-   soupeř vpravo zarovnaný doprava. Symetrie je tu funkční, ne
-   estetická — oko porovnává dvě čísla vedle sebe, ne dva odstavce.
+   A fixture card is a symmetrical grid: home on the left, the score in the
+   middle, the opponent on the right, right-aligned. The symmetry is
+   functional, not decorative — the eye compares two numbers side by side,
 
-   Barva rámuje výsledek jen zleva. Celá zelená karta by při pěti
-   zápasech pod sebou vypadala jako semafor. */
+   The colour frames the result from the left only. A whole green card would
+   look like a traffic light with five fixtures stacked. */
 .h2hm{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;
   align-items:center;padding:12px 14px;border:1px solid var(--line);
   border-radius:var(--r-card);margin-bottom:8px;background:var(--white)}
@@ -1353,18 +1381,18 @@ table.h2ht tr.me td b{color:var(--ok)}
 .hrow.h2hrow.w .pc{color:var(--ok)}
 .hrow.h2hrow.l .pc{color:var(--alert)}
 
-/* Volba počátečního kola H2H. Vypadá jako věta, ne jako formulář —
-   je to jedno nastavení, ne sekce. */
+/* Choosing the starting gameweek. It looks like a sentence, not a form — it
+   is one setting, not a section. */
 .h2hstart{margin:0 0 10px;font-size:12px;color:var(--mute)}
 .h2hstart b{font-family:var(--f-mono);font-weight:700;color:var(--charcoal)}
 
 /* ---------- FPL Zpravodaj ----------
-   Karta je celá odkaz, ne titulek s odkazem: cíl kliknutí je pak velký
-   jako karta, což je na dotyku rozdíl mezi trefit a netrefit.
+   The whole card is a link, not a headline with a link: the click target is
+   then as big as the card, which on touch is the difference between hitting
 
-   Barva zdroje je proužek vlevo, ne podbarvení celé karty. Deset
-   obarvených karet pod sebou vypadá jako semafor a titulky se v tom
-   ztratí. */
+   The source colour is a strip on the left, not a tint across the whole card.
+   Ten tinted cards stacked look like a traffic light and the headlines get
+   lost in it. */
 .nfilter{margin-bottom:10px;flex-wrap:wrap}
 .nfilter button b{margin-left:6px;font-family:var(--f-mono);font-size:10px;
   font-weight:700;opacity:.65}
@@ -1397,7 +1425,7 @@ table.h2ht tr.me td b{color:var(--ok)}
 
 .nfoot{margin:12px 0 0;font-size:11.5px;color:var(--mute)}
 
-/* Box na Přehledu: tři titulky, bez úryvků — je to rozcestník. */
+/* The Home box: three headlines, no excerpts — it is a signpost. */
 .nmini{display:grid;gap:9px}
 .nmini a{display:block;text-decoration:none;color:inherit;
   border-left:3px solid var(--mute);padding:1px 0 1px 10px;border-radius:0}
@@ -1408,11 +1436,11 @@ table.h2ht tr.me td b{color:var(--ok)}
 .nmini b{font-size:13px;font-weight:600;line-height:1.35;color:var(--charcoal)}
 .nmini a:hover b{color:var(--blue)}
 
-/* ---------- Přestupový poradce ----------
-   Diagnostika: čtyři boxy vedle sebe, v každém metriky pozice proti
-   ligovému průměru. Barva je na hodnotě, ne na celém boxu — obarvený
-   box svádí číst „obrana je zelená“, ale zelená je jen jedna metrika
-   z jeho tří. */
+/* ---------- comparison diagnostics ----------
+   Four boxes side by side, each with the metrics of a position against the
+   league average. The colour is on the value, not on the whole box — a
+   tinted box invites reading "the defence is green", but green is only one
+   of its three metrics. */
 .advgrid{display:grid;gap:10px;margin-bottom:18px;
   grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
 .advbox{border:1px solid var(--line);border-radius:var(--r-card);padding:12px 14px}
@@ -1429,9 +1457,9 @@ table.h2ht tr.me td b{color:var(--ok)}
 .advrow.ok b{color:var(--ok)}
 .advrow.bad b{color:var(--alert)}
 
-/* Tip: dva hráči proti sobě a pod nimi tytéž metriky v řádcích. Řádek
-   se barví podle toho, kdo je v něm lepší — hodnota bez porovnání
-   nutí člověka počítat rozdíl v hlavě. */
+/* A tip: two players against each other with the same metrics in rows
+   underneath. A row is coloured by who is better in it — a value without a
+   comparison makes people work out the difference in their heads. */
 .advtip{border:1px solid var(--line);border-radius:var(--r-card);
   padding:14px 16px;margin-bottom:12px;background:var(--white)}
 .advhead{display:flex;align-items:center;gap:9px;margin-bottom:12px;
@@ -1459,10 +1487,10 @@ table.advcmp tr.out td:first-child{color:var(--ok);font-weight:700}
 .advwhy{margin:11px 0 0;font-size:12.5px;line-height:1.6;color:var(--mute)}
 .advfoot{margin:16px 0 0;font-size:11px;line-height:1.6;color:var(--mute)}
 
-/* ---------- Zranění ----------
-   Vlastní má jen tři věci: široké hledací pole, klikatelné hlavičky
-   a drobný štítek s datem návratu pod jménem. Zbytek je obyčejná
-   tabulka. */
+/* ---------- injuries ----------
+   Only three things are its own: a wide search field, clickable headers and
+   a small label with the return date under the name. The rest is an ordinary
+   table. */
 .injq{width:100%;margin:12px 0}
 .injback{display:block;font-family:var(--f-mono);font-size:10.5px;
   color:var(--mute);margin-top:2px}
@@ -1470,9 +1498,9 @@ th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
 th.sortable:hover{color:var(--ink)}
 th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 
-/* ---------- Poradce: hráči k zamyšlení ----------
-   Karta je záměrně plochá: jméno, zařazení a věta proč. Náhrady se
-   tu nehledají — od toho jsou tipy nad tím. */
+/* ---------- players worth a thought ----------
+   The card is deliberately flat: a name, a category and a sentence saying
+   why. Replacements are not searched for here. */
 .advthink{border:1px solid var(--line);border-left-width:3px;
   border-radius:var(--r-card);padding:10px 13px;margin:0 0 8px}
 .advthink.p1{border-left-color:var(--alert)}
@@ -1485,12 +1513,12 @@ th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 .advthink p{margin:5px 0 0;font-size:13px;line-height:1.5;color:var(--mute)}
 
 /* ---------- jistota pohybu ceny ----------
-   Slovo místo teček. Sytost pozadí roste s jistotou, takže se dá
-   tabulka číst i bez čtení — ale slovo tam je, aby se dala číst
-   i doopravdy. */
-/* Štítky mají pevnou šířku a text na střed. Různě dlouhá slova
-   („jisté“ vs „pravděpodobné“) jinak roztahovala každý řádek jinak
-   a sloupec vypadal jako rozsypaný čaj. */
+   A word instead of dots. The background saturation grows with confidence,
+   so the table can be read without reading — but the word is there so it can
+   properly. */
+/* The labels have a fixed width and centred text. Words of different lengths
+   ("certain" vs "near certain") otherwise stretched every row differently
+   and the column looked scattered. */
 .lk{display:inline-flex;align-items:center;justify-content:center;gap:5px;
   width:132px;box-sizing:border-box;
   font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;
@@ -1506,7 +1534,7 @@ th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 .lk.l1,.lk.l2{opacity:.72}
 @media(max-width:760px){.lk,.lk.none{width:auto;min-width:104px}}
 
-/* ---------- našeptávač watchlistu ---------- */
+/* ---------- watchlist suggestions ---------- */
 .watchadd label{position:relative}
 .wsug{position:absolute;z-index:20;left:0;right:0;top:100%;margin-top:3px;
   background:var(--white);border:1px solid var(--line);border-radius:var(--r-card);
@@ -1519,21 +1547,21 @@ th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 .wsug button:hover,.wsug button[aria-selected="true"]{background:var(--line)}
 .wsug button span{font-family:var(--f-mono);font-size:10.5px;color:var(--mute)}
 
-/* Dokud se nepohnulo deset cen, tabulky sezónních pohybů se dopisují
-   prázdnými řádky — ať výška nepodskakuje s každou změnou cen. */
+/* Until ten prices have moved, the season movement tables are padded with
+   empty rows — so the height does not jump with every price change. */
 tr.empty td{color:var(--line);text-align:center;font-family:var(--f-mono)}
 
 /* ============================================================
-   SESTAVA V OKNĚ (#sqmodal)
+   THE SQUAD MODAL (#sqmodal)
 
-   Klikatelné jméno manažera kdekoli v appce otevře jeho sestavu.
-   Na desktopu je to okno uprostřed, na mobilu spodní plachta — přepínají
-   to pravidla v mobile.css, markup je jeden a týž.
+   A clickable manager name anywhere in the app opens their squad. On desktop
+   it is a modal in the middle, on mobile a bottom sheet — the rules in
+   mobile.css switch that, the markup is one and the same.
    ============================================================ */
 .sqbtn{border:0;background:none;padding:0;font:inherit;color:inherit;
   cursor:pointer;text-align:inherit;
-  /* Podtržení místo barvy: v tabulce i na kartě zápasu se jméno pořád
-     čte jako jméno, jen dá najevo, že se na něj dá kliknout. */
+  /* An underline instead of colour: in a table or on a card the name still
+     reads as a name, it just signals that it can be clicked. */
   text-decoration:underline;text-decoration-color:var(--line);
   text-underline-offset:3px;text-decoration-thickness:1.5px;max-width:100%}
 .sqbtn:hover{text-decoration-color:var(--blue);color:var(--blue)}
@@ -1592,42 +1620,42 @@ body.sq-lock{overflow:hidden}
   width:15px;height:15px;line-height:15px;text-align:center;
   vertical-align:middle}
 .sqp .cap.vc{background:var(--mute)}
-/* Kdo ještě nenastoupil, není nula — je to nedopsaný řádek. */
+/* A player yet to start is not a zero — it is an unfinished row. */
 .sqp.idle b,.sqp.idle .pts{opacity:.5}
 .sqp.bench{opacity:.72}
 
-/* Šipka u jména v okně se sestavou: kdo přišel autosubem a kdo šel ven.
-   Bez ní by u vystřídaného hráče seděla nula a body by se objevily
-   u někoho, kdo je „na lavičce“ — a nedalo by se poznat proč. */
+/* The arrow next to a name in the squad modal: who came on as an autosub and
+   who went off. Without it a substituted player would sit on a zero and the
+   points would appear next to somebody "on the bench" — with no way to see why. */
 .sqp .sub{font-style:normal;margin-left:5px;font-size:11px;
   color:var(--ok);font-weight:700}
 .sqp .sub.out{color:var(--mute)}
 .sqp.bench{opacity:.72}
 
 /* ============================================================
-   HORNÍ LIŠTA — pět sekcí, nabídka, hledání
+   TOP BAR — five sections, a menu, search
 
-   Jedenáct záložek ve vlastním pruhu nebyla navigace, ale seznam.
-   Segment drží pětici denně otevíraných sekcí, zbytek je pod „Víc“
-   hned za nimi.
+   Nine tabs in their own strip were not navigation, they were a list. The
+   segment holds the five sections opened daily, the rest lives under "More"
+   right behind them.
 
-   Pravidlo rozvržení: JEDEN ŘÁDEK, KTERÝ SE NIKDY NEZALOMÍ. Značka se
-   ořezává, hledání se scvrkne na ikonu, jméno týmu zmizí — ale segment
-   a stavový čip zůstávají v plné šířce, protože kvůli nim se sem
-   člověk dívá.
+   The layout rule: ONE ROW THAT NEVER WRAPS. The mark is clipped, the search
+   shrinks to an icon, the team name disappears — but the segment and the
+   status chip stay at full width, because they are what people look at.
+
    ============================================================ */
 .bar .wrap{display:flex;align-items:center;gap:10px;height:58px;
   flex-wrap:nowrap;min-width:0}
 .barspace{flex:1 1 auto;min-width:8px}
 
-/* Značka se musí umět zúžit, jinak podleze segment. Ořízne se podtitul
-   i název; pohár vlevo appku pozná i tak. */
+/* The mark has to be able to narrow, or it slides under the segment. The
+   subtitle and the name are clipped; the trophy on the left still identifies the app. */
 .bar .brand{flex:0 1 auto;min-width:0;overflow:hidden;text-decoration:none}
 .bar .brand img{width:30px;height:30px}
-/* Název ligy místo jména nástroje. Dvě řádky jsou schválně: „O pohár
-   Ládi Stropnického“ na jednom řádku je 25 znaků a buď by segment
-   odtlačil, nebo by se ořízl v půlce jména. Zalomený se vejde do stejné
-   výšky jako pohár vedle. */
+/* The league name instead of the tool's name. Two lines are deliberate: a
+   long league name on one line would either push the segment away or be
+   clipped in the middle of a word. Wrapped, it fits the same height as the
+   trophy beside it. */
 .bar .brand .tx{min-width:0;font-family:var(--f-disp);font-weight:600;
   font-size:14px;line-height:1.05;letter-spacing:.02em;color:#fff;
   text-transform:uppercase;
@@ -1635,8 +1663,13 @@ body.sq-lock{overflow:hidden}
   overflow:hidden;max-width:190px;white-space:normal}
 .bar .brand .tx.long{font-size:11.5px;letter-spacing:.04em;max-width:150px}
 
-/* Starý pruh se záložkami zůstává v DOM jako zdroj pravdy o otevřené
-   sekci — jen ho není vidět. */
+/* The gameweek state under the name replaces the status bar and applies on
+   phones only (switched on by css/mobile.css). On desktop the bar sits under
+   the header and a second copy would only duplicate it. */
+.bar .brandsub{display:none}
+
+/* The old tab strip stays in the DOM as the source of truth about the open
+   section — it is just not visible. */
 .navbar{display:none}
 
 #topnav{flex:none}
@@ -1671,8 +1704,8 @@ body.sq-lock{overflow:hidden}
   background:var(--alert);color:#fff;border-radius:20px;padding:1px 7px}
 .morewrap .sheet hr{border:0;border-top:1px solid var(--line);margin:5px 4px}
 
-/* Hledání: normální tlačítko, ne pole. Text i klávesová zkratka zmizí
-   dřív, než by se cokoli mohlo zalomit. */
+/* Search: an ordinary button, not a field. The text and the shortcut
+   disappear before anything could wrap. */
 .bar .cmd{flex:none;display:inline-flex;align-items:center;gap:7px;height:32px;
   padding:0 12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);
   border-radius:10px;color:#C9AFD1;font-family:var(--f);font-size:12.5px;
@@ -1682,8 +1715,8 @@ body.sq-lock{overflow:hidden}
   border:1px solid rgba(255,255,255,.22);border-radius:5px;padding:2px 5px;
   color:#D8C4DD}
 
-/* Stavový čip. Během kola průběžné body — deadline má vlastní místo
-   v pruhu pod lištou, kde se vejde i s číslem kola. */
+/* The status chip. Live points during a gameweek — the deadline has its own
+   place in the bar below, where it fits with the gameweek number. */
 .bar .state{display:inline-flex;align-items:center;gap:7px;flex:none;height:32px;
   border-radius:999px;padding:0 13px 0 10px;background:rgba(255,255,255,.09);
   border:1px solid rgba(255,255,255,.16);color:#F0E4F3;font-family:var(--f);
@@ -1698,9 +1731,9 @@ body.sq-lock{overflow:hidden}
 .bar .state b{font-family:var(--f-mono);font-weight:700}
 .bar .state .sep{opacity:.4}
 
-/* Vpravo jen ⟳ a iniciály. Přepínače, přihlášení a odhlášení jsou
-   v nabídce „Víc“ a v mobilní plachtě; tady zůstávají skryté stylem,
-   protože obě nabídky na ně klikají a čtou z nich stav. */
+/* On the right only ⟳ and the initials. The switches and sign-out live in the
+   "More" menu and in the mobile sheet; here they stay hidden by style,
+   because both menus click them and read their state. */
 #viewmode,#theme,#logout,#gauth{display:none}
 .bar .cd{display:none}
 .statusbar{display:block}
@@ -1709,20 +1742,20 @@ body.sq-lock{overflow:hidden}
 .bar .who b{display:inline-flex;align-items:center;justify-content:center;
   width:32px;height:32px;border-radius:50%;background:var(--aubergine-lift);
   border:1px solid rgba(255,255,255,.24);overflow:visible}
-/* V kolečku jsou jen iniciály. Název týmu se sem nevejde a je hned pod
-   lištou v Přehledu; tady by z něj byla šmouha přes tři písmena. */
+/* The circle holds initials only. A team name does not fit here and is right
+   below the bar on Home; here it would be a smudge across three letters. */
 .bar .who b .tn{display:none}
 .bar .who b .ini{font-family:var(--f-mono);font-size:11px;font-weight:700;
   color:#fff;letter-spacing:.04em;line-height:1}
 
-/* Kolejnice sezóny zmizela. Ve výšce vlásku byla nečitelná a popisek
-   kola z ní lezl do lišty; číslo kola i postup sezónou říká pruh se
-   stavem dat celou větou. */
+/* The season rail is gone. At hairline height it was illegible and the
+   gameweek label crept into the bar; the gameweek number and the progress
+   through the season are stated in full by the status bar. */
 .rail,.railkey{display:none}
 
 /* ---------- pruh se stavem dat ----------
-   Deadline se přestěhoval sem: v liště překrýval stavový čip, tady má
-   vlastní místo a vejde se i s číslem kola. */
+   The deadline moved here: in the bar it covered the status chip, here it has
+   its own place and fits with the gameweek number. */
 .statusbar{border-bottom:1px solid var(--line);background:var(--haze)}
 .statusbar .wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   padding:8px 0;font-size:12.5px}
@@ -1730,7 +1763,7 @@ body.sq-lock{overflow:hidden}
 .statusbar .sbspace{flex:1}
 .sbtime{font-family:var(--f-mono);font-size:11px;color:var(--mute)}
 
-/* ---------- paleta hledání ---------- */
+/* ---------- search palette ---------- */
 #palette{position:fixed;inset:0;z-index:95}
 #palette .scrim{position:absolute;inset:0;background:rgba(15,0,18,.45)}
 #palette .card{position:absolute;left:50%;top:14vh;transform:translateX(-50%);
@@ -1747,8 +1780,8 @@ body.sq-lock{overflow:hidden}
 #palout .k{margin-left:auto;font-family:var(--f-mono);font-size:10px;color:var(--mute)}
 #palout .empty{color:var(--mute);font-size:13px;padding:12px 11px;margin:0}
 
-/* Zúžené okno: napřed popisek hledání, pak podtitul značky, pak název
-   appky. Segment se nedotýká nikdy. */
+/* A narrowed window: first the search label goes, then the brand subtitle,
+   then the app name. The segment is never touched. */
 @media(max-width:1200px){
   .bar .cmd kbd,.bar .cmd .txt{display:none}
   .bar .cmd{padding:0 9px}
@@ -1761,17 +1794,17 @@ body.sq-lock{overflow:hidden}
   .bar .brand .tx{display:none}
 }
 
-/* Záblesk po tichém přepsání čísel. */
+/* A flash after numbers are quietly rewritten. */
 @keyframes flashbg{from{background:rgba(204,156,72,.28)}to{background:transparent}}
 .flash{animation:flashbg 1.2s ease-out}
 
-/* Chyba s možností zkusit to znovu. */
+/* An error with the option to try again. */
 .errbox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   background:var(--haze);border:1px solid var(--line);border-radius:10px;
   padding:9px 12px;font-size:13px;margin:8px 0}
 .errbox span{flex:1;min-width:180px}
 
-/* ---- H2H: forma, průběh kola, vzájemná bilance ---- */
+/* ---- form and gameweek progress ---- */
 .forma{display:inline-flex;gap:3px}
 .forma i{font-style:normal;font-family:var(--f-mono);font-size:9.5px;
   font-weight:700;width:15px;height:15px;line-height:15px;text-align:center;
@@ -1790,7 +1823,7 @@ body.sq-lock{overflow:hidden}
 .h2hm.w .sc .vysl{color:var(--ok)}
 .h2hm.l .sc .vysl{color:var(--alert)}
 
-/* ---- okno se sestavou: rozdíly a porovnání ---- */
+/* ---- the squad modal: differences and comparison ---- */
 .sqdiffs{display:flex;flex-wrap:wrap;gap:5px}
 .sqdiff{display:inline-flex;align-items:center;gap:4px;font-size:12px;
   border:1px solid var(--line);border-radius:20px;padding:3px 9px}
@@ -1805,8 +1838,8 @@ body.sq-lock{overflow:hidden}
 .linklike{border:0;background:none;padding:0;font:inherit;color:var(--blue);
   text-decoration:underline;cursor:pointer}
 
-/* Deadline v pruhu se stavem: má vlastní místo vpravo, hned před časem
-   posledních dat. Zlatý rámeček je tentýž jazyk jako u odpočtu dřív. */
+/* The deadline in the status bar: it has its own place on the right, just
+   before the age of the data. The gold frame is the same language as the countdown. */
 .statusbar .sbdl{display:inline-flex;align-items:center;gap:6px;
   border:1px solid var(--gold);border-radius:999px;padding:3px 11px;
   background:#FDF6E8;color:#7A5A1E;font-size:12px;white-space:nowrap}

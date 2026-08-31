@@ -1,13 +1,12 @@
 /* Minileague Squad Check
 
-   Malá obrazovka do 640 px. <link id="mqS">, viz applyView().
+   A small screen up to 640 px. <link id="mqS">, see applyView().
    ============================================================ */
 
-/* Na úzké obrazovce žádné postranní pruhy nejsou — vodoznak by ležel
-     pod textem, ne vedle něj. */
+/* On a narrow screen there are no side margins — the watermark would sit
+     under the text rather than beside it. */
   body::before{display:none}
   .cmpbar{grid-template-columns:1fr}
-  .awards{grid-template-columns:1fr}
   .watchadd{grid-template-columns:1fr}
   .hcards{grid-template-columns:1fr 1fr}
   .hgrid{grid-template-columns:1fr}

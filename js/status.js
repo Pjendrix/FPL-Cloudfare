@@ -1,23 +1,24 @@
-/* Minileague Squad Check — stav dat, odkazy a společné drobnosti
+/* FPL Squad Check — data status, links and shared odds and ends
 
-   Čtyři věci, které byly dosud rozeseté po záložkách, každá trochu jinak:
+   Four things that used to be scattered across tabs, each done slightly
+   differently:
 
-     1. STAV DAT. Appka umí rozeznat běžící kolo, čekání na bonusy
-        a dopočítané kolo, ale říkala to jen na některých panelech.
-        Otázka „je tohle už konečné?“ přitom během kola nezmizí, ať se
-        člověk dívá kamkoli. Proto jeden pruh pod hlavičkou.
+     1. DATA STATUS. The app can tell a live gameweek from one waiting for
+        bonus and from a finished one, but only some panels said so. The
+        question "is this final yet?" does not go away during a gameweek,
+        wherever you happen to be looking. Hence one bar under the header.
 
-     2. ČAS POSLEDNÍCH DAT. Bez něj se nedá poznat rozdíl mezi „nic se
-        nezměnilo“ a „appka se od rána nic nezeptala“.
+     2. AGE OF THE DATA. Without it there is no telling "nothing changed"
+        from "the app has not asked since this morning".
 
-     3. ODKAZ NA KONKRÉTNÍ KOLO. `#h2h/gw7` se dá poslat do skupinového
-        chatu. Dosud šlo odkázat jen na appku jako celek.
+     3. LINK TO A SPECIFIC SECTION. `#prices` can be sent to a group chat.
+        Until now you could only link to the app as a whole.
 
-     4. ZKUSIT ZNOVU. Chybová hláška bez tlačítka nutí k reloadu celé
-        stránky, což zahodí i to, co se načetlo v pořádku.
+     4. TRY AGAIN. An error message without a button forces a full page
+        reload, which throws away everything that did load correctly.
 
-   Soubory js/ se načítají jako klasické <script> v pevném pořadí a
-   sdílejí jeden globální scope; pořadí je vypsané v index.html.
+   The js/ files load as classic <script> tags in a fixed order and share
+   one global scope; the order is written down in index.html.
    ============================================================ */
 
 /* ------------------------------------------------------------
@@ -25,26 +26,26 @@
    ------------------------------------------------------------ */
 
 const STAV_TXT = {
-  running: ['wn', 'kolo běží', 'Bonusy se počítají až po posledním zápase.'],
-  unchecked: ['wn', 'čeká na bonusy',
-    'Zápasy skončily, FPL ještě nepotvrdilo bonusové body.'],
-  final: ['ok', 'dopočítáno', 'Body jsou konečné.'],
+  running: ['wn', 'gameweek live', 'Bonus is only computed after the last match.'],
+  unchecked: ['wn', 'awaiting bonus',
+    'Matches are over, FPL has not confirmed bonus points yet.'],
+  final: ['ok', 'final', 'The points are final.'],
 };
 
-function stavCas(ts){
-  if(!ts) return 'zatím nic';
+function statusTime(ts){
+  if(!ts) return 'nothing yet';
   const d = new Date(ts);
   const min = Math.round((Date.now() - ts) / 60000);
-  if(min < 1) return 'právě teď';
-  if(min < 60) return 'před ' + min + ' min';
+  if(min < 1) return 'just now';
+  if(min < 60) return min + ' min ago';
   return d.toLocaleTimeString('cs-CZ', {hour: '2-digit', minute: '2-digit'});
 }
 
-/* Dvojitý deadline: dvě kola do tří dnů po sobě.
+/* Double deadline: two gameweeks within three days of each other.
 
-   Stává se to při přesunutém kole a je to přesně ta situace, kdy odpočet
-   v hlavičce mate — ukazuje nejbližší termín a neřekne, že hned za ním
-   je další. */
+   It happens when a gameweek is moved, and it is exactly the situation in
+   which the countdown in the header misleads — it shows the nearest
+   deadline and does not say another one follows right behind. */
 function dvojityDeadline(){
   if(!BOOT) return null;
   const dalsi = (BOOT.events || [])
@@ -68,8 +69,9 @@ function drawStatus(){
   const [cls, txt, vysvetleni] = STAV_TXT[faze] || STAV_TXT.running;
   const dvoj = dvojityDeadline();
 
-  /* Deadline patří sem, ne do lišty: nahoře překrýval stavový čip a musel
-     se zkracovat, tady se vejde i s číslem kola. */
+  /* The deadline belongs here, not in the bar: up there it covered the
+     status chip and had to be shortened; here it fits with the gameweek
+     number. */
   const deadline = nxt
     ? `<span class="sbdl"><b>GW${nxt.id}</b> ${esc(untilText(
         new Date(nxt.deadline_time).getTime() - Date.now()))}</span>`
@@ -80,35 +82,53 @@ function drawStatus(){
     ${cur ? `<span class="livetag ${cls}">GW${cur.id} · ${txt}</span>
       <span class="sbnote">${esc(vysvetleni)}</span>` : ''}
     ${dvoj ? `<span class="livetag wn">Pozor: GW${dvoj[0].id} i GW${dvoj[1].id}
-      do tří dnů</span>` : ''}
+      within three days</span>` : ''}
     <span class="sbspace"></span>
     ${deadline}
-    <span class="sbtime" id="sbtime">data ${esc(stavCas(API_LAST))}</span>
+    ${STALE_USED ? `<span class="livetag wn" title="The FPL API did not respond,
+      showing the last known data">fallback data ${esc(statusTime(STALE_USED))}</span>`
+      : ''}
+    <span class="sbtime" id="sbtime">data ${esc(statusTime(API_LAST))}</span>
   </div>`;
+
+  /* The same content shortened to one line for the header. On a phone
+     the status bar is hidden (it took two rows above the content), so
+     this is the only place the gameweek state and the countdown can be
+     read. */
+  const sub = $('brandSub');
+  if(sub){
+    const casti = [];
+    if(cur) casti.push(`GW${cur.id} ${txt}`);
+    if(nxt) casti.push(`GW${nxt.id} ${untilText(
+      new Date(nxt.deadline_time).getTime() - Date.now())}`);
+    sub.textContent = casti.join(' · ');
+    sub.hidden = !casti.length;
+  }
 }
 
-/* Čas i odpočet se posouvají samy, i když se nic nenačítá — od toho
-   tam jsou. Překreslujeme celý pruh, protože odpočet je jeho součástí. */
+/* The clock and the countdown move theirs_ their own even when nothing is
+   loading — that is what they are for. The whole bar is redrawn, because
+   the countdown is part of it. */
 setInterval(() => { try{ drawStatus(); }catch(e){} }, 30000);
 
 /* ------------------------------------------------------------
-   Zvýraznění změny
+   Highlighting a change
 
-   Když se čísla přepíšou sama, musí to být vidět — jinak člověk neví,
-   jestli se něco stalo, nebo jestli obnova nefunguje.
+   When numbers rewrite themselves it has to be visible — otherwise you
+   cannot tell whether something happened or the refresh is broken.
    ------------------------------------------------------------ */
 function flash(el){
   if(!el || !el.classList) return;
   el.classList.remove('flash');
-  void el.offsetWidth;          // vynutí restart animace
+  void el.offsetWidth;          // forces the animation to restart
   el.classList.add('flash');
 }
 
 /* ------------------------------------------------------------
    Zkusit znovu
 
-   Vrací hlášku i s tlačítkem. `tab` je id záložky, která se má načíst
-   znovu; bez něj se jen zopakuje předaná funkce.
+   Returns a message together with a button. `tab` is the id of the tab
+   to reload; without it the given function is simply repeated.
    ------------------------------------------------------------ */
 const RETRY_FN = new Map();
 let RETRY_SEQ = 0;
@@ -126,14 +146,15 @@ document.addEventListener('click', async ev => {
   if(!btn) return;
   const {retry, retrytab} = btn.dataset;
   btn.disabled = true;
-  btn.textContent = 'Načítám…';
+  btn.textContent = 'Loading…';
 
   try{
     const fn = RETRY_FN.get(retry);
     if(fn){ await fn(); RETRY_FN.delete(retry); return; }
 
-    /* Bez vlastní funkce se záložka načte znovu od začátku: zahodíme
-       její data z cache, ať se nevrátí tatáž chyba z paměti. */
+    /* With no function of its own the tab reloads from scratch: its data
+       is dropped from the cache so the same error is not served from
+       memory. */
     if(retrytab && TAB_INIT[retrytab]){
       dropCached(/^(leagues-classic|entry|event)\//);
       TAB_DONE.delete(retrytab);
@@ -147,20 +168,20 @@ document.addEventListener('click', async ev => {
 });
 
 /* ------------------------------------------------------------
-   Sdílení
+   Sharing
 
-   navigator.share je na telefonu; na desktopu skončí v schránce.
-   Obojí je „dostal jsem to ven z appky“, což je celý účel.
+   navigator.share exists theirs_ a phone; theirs_ desktop it ends up in the
+   clipboard. Both are "I got it out of the app", which is the point.
    ------------------------------------------------------------ */
-async function shareText(titulek, text){
+async function shareText(title_, text){
   try{
-    if(navigator.share){ await navigator.share({title: titulek, text}); return 'sdíleno'; }
+    if(navigator.share){ await navigator.share({title: title_, text}); return 'shared'; }
   }catch(e){
-    if(e && e.name === 'AbortError') return null;   // uživatel to zrušil
+    if(e && e.name === 'AbortError') return null;   // the user cancelled
   }
   try{
     await navigator.clipboard.writeText(text);
-    return 'zkopírováno';
+    return 'copied';
   }catch(e){ return null; }
 }
 
@@ -171,7 +192,7 @@ document.addEventListener('click', async ev => {
   const res = await shareText(btn.dataset.sharetitle || 'Squad Check',
                               btn.dataset.share);
   if(res){
-    btn.textContent = res === 'sdíleno' ? 'Hotovo' : 'Zkopírováno';
+    btn.textContent = res === 'shared' ? 'Done' : 'Copied';
     setTimeout(() => { btn.textContent = puvodni; }, 2000);
   }
 });
@@ -179,26 +200,26 @@ document.addEventListener('click', async ev => {
 /* ------------------------------------------------------------
    Odkaz na kolo
 
-   Tvar `#h2h/gw7`. Záložka je povinná, kolo nepovinné. Čte se při
-   startu a zapisuje se při přepnutí — takže adresní řádek pořád
-   odpovídá tomu, co je vidět.
+   Shape `#prices` or `#hub/gw7`. The section is required, the gameweek
+   optional. Read at startup and written when tabs change — so the address
+   bar always matches what is theirs_ screen.
    ------------------------------------------------------------ */
 const HASH_TAB = {
   home: 't-home', squad: 't-squad', league: 't-league', hub: 't-hub',
-  h2h: 't-h2h', news: 't-news', inj: 't-inj', players: 't-players',
-  prices: 't-prices', adv: 't-adv', plan: 't-plan',
+  news: 't-news', inj: 't-inj', players: 't-players',
+  prices: 't-prices', plan: 't-plan',
 };
 
-let HASH_TICHO = false;   // vlastní zápis nesmí vyvolat vlastní čtení
+let HASH_QUIET = false;   // our own write must not trigger our own read
 
 function setHash(tab, gw){
   const klic = Object.keys(HASH_TAB).find(k => HASH_TAB[k] === tab);
   if(!klic) return;
   const nova = '#' + klic + (gw ? '/gw' + gw : '');
   if(location.hash === nova) return;
-  HASH_TICHO = true;
+  HASH_QUIET = true;
   history.replaceState(null, '', nova);
-  setTimeout(() => { HASH_TICHO = false; }, 0);
+  setTimeout(() => { HASH_QUIET = false; }, 0);
 }
 
 function readHash(){
@@ -208,16 +229,15 @@ function readHash(){
   return tab ? {tab, gw: m[2] ? Number(m[2]) : null} : null;
 }
 
-/* Otevře, na co odkaz míří. Volá se po načtení sestavy, protože dřív
-   nemá záložka co zobrazit. */
+/* Opens whatever the link points at. Called after the squad has loaded,
+   because before that a tab has nothing to show. */
 async function applyHash(){
   const h = readHash();
   if(!h) return;
-  if(h.gw && typeof H2H_GW !== 'undefined' && h.tab === 't-h2h') H2H_GW = h.gw;
   selectTab(h.tab);
 }
 
 window.addEventListener('hashchange', () => {
-  if(HASH_TICHO) return;
+  if(HASH_QUIET) return;
   applyHash();
 });

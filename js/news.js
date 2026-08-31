@@ -1,20 +1,20 @@
-/* Minileague Squad Check — FPL Zpravodaj
+/* FPL Squad Check — FPL newsletter
 
-   Sloučený proud článků ze tří zdrojů. Stahování a parsování dělá
-   api/news.js na serveru; tady se jen vykresluje a filtruje.
+   A merged stream of articles from several sources. Fetching and parsing
+   happen in api/news.js on the server; this file only renders and filters.
 
-   Soubory js/ se načítají jako klasické <script> v pevném pořadí a
-   sdílejí jeden globální scope: nic se neexportuje ani neimportuje,
-   ale hoisting přes hranici souboru neplatí. Pořadí je proto součást
-   kontraktu a je vypsané v index.html.
+   The js/ files load as classic <script> tags in a fixed order and share
+   one global scope: nothing is exported or imported, but hoisting does
+   not cross file boundaries. The order is therefore part of the contract
+   and is written down in index.html.
    ============================================================ */
 
 let NEWS = null;          // {items, failed, fetched}
-let NEWS_LOADING = null;  // rozdělaný slib, ať dva panely nestahují dvakrát
+let NEWS_LOADING = null;  // in-flight promise, so two panels do not fetch twice
 let NEWS_FILTER = 'all';  // 'all' | id zdroje
 
-/* Filtr je způsob čtení jedné obrazovky, ne nastavení appky — do
-   localStorage nepatří. Po reloadu je zpátky celý proud. */
+/* The filter is a way of reading one screen, not an app setting — it does
+   not belong in localStorage. After a reload the whole stream is back. */
 
 const NEWS_SOURCES = [
   {id: 'ffs',   name: 'FFScout', cls: 'src-ffs'},
@@ -29,20 +29,21 @@ async function fetchNews(force){
   NEWS_LOADING = fetch('/api/news' + (force ? '?t=' + Date.now() : ''))
     .then(async r => {
       const data = await r.json().catch(() => null);
-      if(!r.ok) throw new Error((data && data.error) || 'Zpravodaj je nedostupný.');
+      if(!r.ok) throw new Error((data && data.error) || 'The newsletter is unavailable.');
 
-      /* Položka ze zdroje, který frontend nezná, se dřív tiše počítala
-         do „Vše“, ale nešla vyfiltrovat — neměla tlačítko. Stane se to
-         pokaždé, když server běží na jiné verzi než stránka: buď kvůli
-         nedokončenému deploy, nebo protože edge cache drží starou
-         odpověď až hodinu. Zahodit ji je poctivější než ji ukázat
-         v proudu, ve kterém nejde vypnout. */
+      /* An item from a source the frontend does not know used to be
+         counted silently into "All" but could not be filtered out — it had
+         no button. That happens whenever the server runs a different
+         version from the page: either an unfinished deploy, or the edge
+         cache holding an old response for up to an hour. Dropping it is
+         more honest than showing it in a stream where it cannot be turned
+         off. */
       const znam = new Set(NEWS_SOURCES.map(x => x.id));
-      const vsechny = (data && data.items) || [];
-      const items = vsechny.filter(i => znam.has(i.source));
-      if(items.length !== vsechny.length){
-        console.warn('Zpravodaj: zahozeno', vsechny.length - items.length,
-          'položek z neznámých zdrojů (server build:', data && data.build, ')');
+      const allItems = (data && data.items) || [];
+      const items = allItems.filter(i => znam.has(i.source));
+      if(items.length !== allItems.length){
+        console.warn('Newsletter: dropped', allItems.length - items.length,
+          'items from unknown sources (server build:', data && data.build, ')');
       }
 
       NEWS = {...data, items};
@@ -53,25 +54,27 @@ async function fetchNews(force){
   return NEWS_LOADING;
 }
 
-/* Čas článku. Absolutní datum u něčeho starého půl hodiny nutí člověka
-   počítat; relativní čas u něčeho tři dny starého zase nic neřekne. */
+/* The article time. An absolute date on something half an hour old makes
+   you do arithmetic; a relative time on something three days old says
+   nothing. */
 function newsTime(iso){
   const d = new Date(iso);
   if(isNaN(d)) return '';
   const min = Math.round((Date.now() - d) / 60000);
-  if(min < 1) return 'právě teď';
-  if(min < 60) return 'před ' + min + ' min';
-  if(min < 60 * 20) return 'před ' + Math.round(min / 60) + ' h';
+  if(min < 1) return 'just now';
+  if(min < 60) return min + ' min ago';
+  if(min < 60 * 20) return Math.round(min / 60) + ' h ago';
   return d.toLocaleString('cs-CZ',
     {day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'});
 }
 
-/* Bezpečná adresa článku.
+/* A safe article URL.
 
-   esc() ošetří uvozovky, ale ne schéma: `javascript:…` z cizího RSS by
-   prošlo a klik na kartu by spustil skript. Zdroje jsou cizí weby, takže
-   se na jejich obsah nedá spoléhat ani u odkazu. Propouštíme jen http
-   a https; cokoli jiného skončí jako mrtvý odkaz, ne jako spuštěný kód. */
+   esc() handles quotes but not the scheme: `javascript:…` from a foreign
+   RSS feed would pass and clicking the card would run a script. The
+   sources are other people's websites, so their content cannot be trusted
+   even for a link. Only http and https get through; anything else ends up
+   as a dead link rather than executed code. */
 function newsHref(url){
   try{
     const u = new URL(String(url), location.origin);
@@ -98,41 +101,42 @@ function renderNews(){
 
   if(!NEWS){ out.innerHTML = '<div class="skel"><i></i><i></i><i></i></div>'; return; }
 
-  const vsechny = NEWS.items || [];
+  const allItems = NEWS.items || [];
   const items = NEWS_FILTER === 'all'
-    ? vsechny : vsechny.filter(i => i.source === NEWS_FILTER);
+    ? allItems : allItems.filter(i => i.source === NEWS_FILTER);
 
-  /* Zdroj, ze kterého nic nepřišlo, se ve filtru neschovává — jinak by
-     to vypadalo, že takový zdroj neexistuje. Zůstane a řekne proč. */
+  /* A source that returned nothing is not hidden from the filter —
+     otherwise it would look as if it did not exist. It stays and says
+     why. */
   const pocty = {};
-  vsechny.forEach(i => { pocty[i.source] = (pocty[i.source] || 0) + 1; });
-  const spadle = new Set((NEWS.failed || []).map(f => f.id));
+  allItems.forEach(i => { pocty[i.source] = (pocty[i.source] || 0) + 1; });
+  const downSources = new Set((NEWS.failed || []).map(f => f.id));
 
-  const filtr = `<div class="subnav nfilter" role="tablist" aria-label="Zdroj zpráv">
+  const filterHtml = `<div class="subnav nfilter" role="tablist" aria-label="News source">
     <button type="button" role="tab" data-news="all"
-      aria-selected="${NEWS_FILTER === 'all'}">Vše
-      <b>${vsechny.length}</b></button>
+      aria-selected="${NEWS_FILTER === 'all'}">All
+      <b>${allItems.length}</b></button>
     ${NEWS_SOURCES.map(s => `<button type="button" role="tab" data-news="${s.id}"
       class="${s.cls}" aria-selected="${NEWS_FILTER === s.id}"
-      ${spadle.has(s.id) ? 'disabled title="Zdroj teď neodpovídá"' : ''}>
-      ${s.name}<b>${spadle.has(s.id) ? '—' : (pocty[s.id] || 0)}</b></button>`).join('')}
+      ${downSources.has(s.id) ? 'disabled title="This source is not responding"' : ''}>
+      ${s.name}<b>${downSources.has(s.id) ? '—' : (pocty[s.id] || 0)}</b></button>`).join('')}
   </div>`;
 
-  /* Spadlý zdroj se přiznává i s důvodem — v odkazu na /api/news?debug=1
-     je přesně to, co server zkoušel a co dostal. Bez toho se „nenačetlo
-     se“ ladí hádáním. */
+  /* A failed source is admitted along with the reason — the link to
+     /api/news?debug=1 holds exactly what the server tried and what it
+     got. Without it "it did not load" is debugged by guesswork. */
   const potiz = (NEWS.failed || []).length
-    ? `<p class="note wn">Neodpověděl${NEWS.failed.length > 1 ? 'y' : ''}:
-       ${NEWS.failed.map(f => esc(f.name)).join(', ')}. Ostatní zdroje
-       se načetly normálně.
-       <a href="/api/news?debug=1" target="_blank" rel="noopener noreferrer">Proč?</a></p>`
+    ? `<p class="note wn">No response from:
+       ${NEWS.failed.map(f => esc(f.name)).join(', ')}. The other sources
+       loaded normally.
+       <a href="/api/news?debug=1" target="_blank" rel="noopener noreferrer">Why?</a></p>`
     : '';
 
-  out.innerHTML = filtr + potiz + (items.length
+  out.innerHTML = filterHtml + potiz + (items.length
     ? `<div class="nlist">${items.map(newsCard).join('')}</div>`
-    : '<p class="note">Z tohohle zdroje teď nic není.</p>')
-    + `<p class="nfoot">Načteno ${newsTime(NEWS.fetched)} ·
-       <button type="button" class="lnkbtn" id="newsreload">Načíst znovu</button></p>`;
+    : '<p class="note">Nothing from this source right now.</p>')
+    + `<p class="nfoot">Loaded ${newsTime(NEWS.fetched)} ·
+       <button type="button" class="lnkbtn" id="newsreload">Reload</button></p>`;
 }
 
 async function loadNews(force){
@@ -159,18 +163,18 @@ document.addEventListener('click', ev => {
 });
 
 /* ------------------------------------------------------------
-   Box na Přehledu
+   The Home box
 
-   Tři nejnovější články napříč zdroji. Načítá se sám, protože jeden
-   dotaz na vlastní endpoint s edge cache stojí prakticky nic — na
-   rozdíl od H2H, které potřebuje sestavy všech členů ligy.
+   The three newest articles across all sources. It loads itself, because
+   one request to our own endpoint behind an edge cache costs practically
+   nothing — unlike the league panels, which need every member's picks.
    ------------------------------------------------------------ */
 let NEWS_FOR_HOME = false;
 
 function homeNews(){
   const box = inner => `<div class="hbox">
-    <h3><i class="hi">📰</i>Zpravodaj<button type="button" class="lnkbtn"
-      data-goto="t-news">Vše</button></h3>${inner}</div>`;
+    <h3><i class="hi">📰</i>Newsletter<button type="button" class="lnkbtn"
+      data-goto="t-news">All</button></h3>${inner}</div>`;
 
   if(!NEWS){
     if(!NEWS_FOR_HOME){
@@ -181,7 +185,7 @@ function homeNews(){
   }
 
   const top = (NEWS.items || []).slice(0, 3);
-  if(!top.length) return box('<p class="note">Zdroje teď neodpovídají.</p>');
+  if(!top.length) return box('<p class="note">The sources are not responding right now.</p>');
 
   return box(`<div class="nmini">${top.map(it => `
     <a class="${NEWS_CLS[it.source] || ''}" href="${esc(newsHref(it.link))}"
