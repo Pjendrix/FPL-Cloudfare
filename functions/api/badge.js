@@ -1,63 +1,77 @@
-// Odznaky klubu jako WebP, servirovane z vlastni domeny.
-//
-// Proc to jde pres proxy a ne primo <img src="https://resources...">:
-//   1. CSP v vercel.json ma img-src 'self' — cizi domena by se neprokreslila.
-//   2. Chteli jsme WebP; PL CDN dava PNG.
-//   3. Odznaky se meni jednou za sezonu (postup/sestup), tak at je edge cache
-//      drzi rok a nechodi se pro ne pri kazdem nacteni.
-//
-// Klic je `code` z bootstrap-static (teams[].code), NE `id`. Kody prezivaji
-// mezi sezonami, id se prehazuje podle abecedy — proto code.
-//   Arsenal 3, Man Utd 1, Liverpool 14, Man City 43, Spurs 6, …
-//
-// sharp je nepovinny. Kdyz chybi, funkce vrati original PNG misto WebP;
-// obrazek se zobrazi tak jako tak, jen o par kB vetsi.
+/* Club badges served from our own domain — Cloudflare Pages Function.
+
+   Why a proxy and not <img src="https://resources..."> directly:
+     1. The CSP sets img-src 'self' — a foreign domain would not render.
+     2. Badges change once a season (promotion and relegation), so the edge
+        cache can hold them for a year instead of fetching on every load.
+
+   The key is `code` from bootstrap-static (teams[].code), NOT `id`. Codes
+   survive between seasons, ids are reshuffled alphabetically every August.
+     Arsenal 3, Man Utd 1, Liverpool 14, Man City 43, Spurs 6, …
+
+   No WebP conversion here. The Vercel version used `sharp`, a native Node
+   binary that the Workers runtime cannot load — and it was optional there
+   anyway. The original PNG is passed through instead: the image shows either
+   way, a few kB larger, and it is cached for a year so the difference is paid
+   once.
+   ============================================================ */
 
 const CDN = "https://resources.premierleague.com/premierleague/badges";
 
-// Nejvetsi rozumna velikost, ktera na CDN existuje pro vsechny kluby.
+// The largest sensible size that exists on the CDN for every club.
 const SIZES = new Set(["25", "50", "70"]);
 
-let sharp = null;
-try {
-  ({ default: sharp } = await import("sharp"));
-} catch {
-  // bez sharpu jedeme dal, jen bez konverze
+const YEAR = "public, max-age=86400, s-maxage=31536000, immutable";
+
+function json(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
 }
 
-export default async function handler(req, res) {
-  const code = String(req.query.code || "");
-  const size = SIZES.has(String(req.query.size)) ? String(req.query.size) : "70";
+export async function onRequestGet(context) {
+  const { request } = context;
+  const params = new URL(request.url).searchParams;
+  const code = String(params.get("code") || "");
+  const size = SIZES.has(String(params.get("size"))) ? String(params.get("size")) : "70";
 
-  // Whitelist tvarem, ne seznamem: kody novacku neznam dopredu.
+  // A whitelist by shape, not by list: the codes of promoted clubs are not
+  // known in advance.
   if (!/^\d{1,4}$/.test(code)) {
-    return res.status(400).json({ error: "Invalid club code." });
+    return json({ error: "Invalid club code." }, 400);
   }
+
+  const cache = caches.default;
+  const hit = await cache.match(request);
+  if (hit) return hit;
 
   try {
     const upstream = await fetch(`${CDN}/${size}/t${code}.png`, {
-      headers: { "User-Agent": "minileague-squad-check/1.0" },
+      headers: { "User-Agent": "fpl-squad-check/1.0" },
+      // Cloudflare's own cache in front of the origin. A badge is the most
+      // cacheable thing in the whole app.
+      cf: { cacheTtl: 31536000, cacheEverything: true },
     });
 
-    // 404 tu neni chyba, ale informace: novacek, ktery jeste odznak nema.
-    // Frontend na to reaguje tim, ze ukaze vlastni barevnou znacku.
+    /* A 404 here is not an error but information: a promoted club that does
+       not have a badge yet. The frontend responds by drawing its own coloured
+       mark from club-marks.svg. */
     if (!upstream.ok) {
-      return res.status(404).json({ error: `The badge for code ${code} is not on the CDN.` });
+      return json({ error: `The badge for code ${code} is not on the CDN.` }, 404);
     }
 
-    const png = Buffer.from(await upstream.arrayBuffer());
-    let body = png;
-    let type = "image/png";
+    const res = new Response(upstream.body, {
+      status: 200,
+      headers: {
+        "Content-Type": upstream.headers.get("content-type") || "image/png",
+        "Cache-Control": YEAR,
+      },
+    });
 
-    if (sharp) {
-      body = await sharp(png).webp({ quality: 88, effort: 5 }).toBuffer();
-      type = "image/webp";
-    }
-
-    res.setHeader("Content-Type", type);
-    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=31536000, immutable");
-    return res.status(200).send(body);
+    context.waitUntil(cache.put(request, res.clone()));
+    return res;
   } catch {
-    return res.status(502).json({ error: "The badge could not be loaded." });
+    return json({ error: "The badge could not be loaded." }, 502);
   }
 }
