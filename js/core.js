@@ -145,8 +145,8 @@ async function api(p, tries = 3){
     if(!ct.includes('application/json')){
       const backup = staleLoad(p);
       if(backup) return backup;
-      throw new Error('The serverless function /api/fpl is not responding (' + r.status + '). '
-        + 'Check that api/fpl.js and package.json are deployed.');
+      throw new Error('The edge function /api/fpl is not responding (' + r.status + '). '
+        + 'Check that functions/api/fpl.js is deployed.');
     }
 
     data = await r.json();
