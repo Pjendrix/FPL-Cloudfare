@@ -1,7 +1,7 @@
 # FPL Squad Check
 
-A helper app for Fantasy Premier League. One HTML page, three serverless
-functions, no build step. Push it to Vercel and it runs.
+A helper app for Fantasy Premier League. One HTML page, three edge functions,
+no build step. Push it to Cloudflare Pages and it runs.
 
 Nothing is downloaded until you enter your team ID and your mini-league ID.
 Each tab fetches its own data when its turn comes.
@@ -51,12 +51,26 @@ Both IDs are kept in `localStorage`, so a refresh does not sign you out.
 
 ## Deployment
 
-1. Push the repository to GitHub and import it into Vercel. No build
-   configuration is needed — the functions in `api/` are detected automatically.
-2. Open the page and enter the two IDs.
+Cloudflare Pages, connected to the repository:
 
-Optionally set `FPL_WORKER_URL` and `FPL_WORKER_TOKEN` to route blocked requests
-through the Cloudflare Worker in `worker.js` (see *Operational notes*).
+1. **Create a project** → Connect to Git → pick this repository.
+2. **Build settings**: framework preset *None*, build command **empty**, output
+   directory **`/`**. There is no build step; the files are served as they are.
+3. Deploy. The functions in `functions/` are picked up automatically and served
+   at `/api/fpl`, `/api/news` and `/api/badge`.
+4. Open the page and enter the two IDs.
+
+No environment variables are needed and no compatibility flags are required —
+the functions use nothing but `fetch`, `caches` and the Web Crypto-free
+standard library.
+
+For a local run: `npx wrangler pages dev .`
+
+**Why Cloudflare rather than Vercel.** FPL sits behind a CDN that refuses
+datacentre IP ranges wholesale, which is what Vercel runs from. The old build
+worked around it with a separate Cloudflare Worker acting as a bypass. A Pages
+Function already runs on a Cloudflare edge IP, so the detour — and its token,
+its second path whitelist and its diagnostics — is simply gone.
 
 ## Files
 
@@ -77,17 +91,16 @@ js/ui.js                theme, view switch, tooltips, the season rail
 js/topbar.js            the desktop top bar, menu and search
 js/mobile.js            bottom navigation, the "More" sheet, gestures
 js/boot.js              app start and service worker registration
-api/fpl.js              a proxy to the official FPL API (solves CORS)
-api/news.js             RSS aggregation
-api/badge.js            club badges from the Premier League CDN, converted to WebP
-worker.js               an optional Cloudflare Worker bypass to the FPL API
+functions/api/fpl.js    a proxy to the official FPL API (solves CORS)
+functions/api/news.js   RSS aggregation
+functions/api/badge.js  club badges from the Premier League CDN
+_headers                security headers and cache policy (Pages)
 sw.js                   service worker — the shell and badges, never data
 club-marks.svg          fallback coloured marks for 20 clubs (a sprite)
 manifest.webmanifest    the PWA manifest
 icon.svg, favicon.svg   the app icon and favicon
 assets/hero.svg         the entry screen artwork
 brand/                  logo and brand sources
-vercel.json             security headers including the CSP
 test.mjs                smoke tests against fake FPL data
 ```
 
@@ -106,11 +119,13 @@ otherwise an offline load gets a shell with nothing to start it. Bump the
 The key is `teams[].code` from the bootstrap, **not `id`** — `code` survives
 between seasons, while `id` is reshuffled alphabetically every August.
 
-`api/badge.js` fetches the official PNG from the Premier League CDN, converts it
-to WebP and lets the edge cache keep it for a year. It goes through our own
-domain because the CSP sets `img-src 'self'` and a foreign source would not
-render. The conversion needs `sharp` (`npm i sharp`); without it the function
-returns the original PNG and the image still shows, just a few kB larger.
+`functions/api/badge.js` fetches the official PNG from the Premier League CDN
+and lets the edge cache keep it for a year. It goes through our own domain
+because the CSP sets `img-src 'self'` and a foreign source would not render.
+
+There is no WebP conversion. The Vercel build used `sharp`, a native Node
+binary the Workers runtime cannot load — and it was optional even there. The
+PNG is passed through instead: a few kB larger, cached for a year, paid once.
 
 When a badge is missing from the CDN — typically a freshly promoted club — it
 falls back to a coloured mark from `club-marks.svg`: club colour, kit pattern
@@ -140,12 +155,19 @@ the mini-league tab. Five concurrent requests from one datacentre IP is exactly
 the pattern that earns a block at FPL, which is why the concurrency is two.
 
 **The CDN block.** FPL sits behind a CDN that refuses datacentre IP ranges
-wholesale. It is not about headers — the refusal comes before they are looked
-at. `api/fpl.js` retries with a cookie handshake, and if that fails it can route
-the request through the Cloudflare Worker in `worker.js`, which runs on an edge
-IP. A block is recognised by the **shape of the response** (a non-JSON
-content-type, an HTML page), not by the status code: the CDN also refuses under
-404, and telling that from "this endpoint does not exist" is otherwise impossible.
+wholesale and also scores individual requests for bot-like behaviour. Running on
+Cloudflare's edge deals with the first half. For the second, `functions/api/fpl.js`
+sends a coherent set of browser headers and, on a refusal, retries with cookies
+collected from the FPL homepage. A block is recognised by the **shape of the
+response** (a non-JSON content-type, an HTML page), not by the status code: the
+CDN also refuses under 404, and telling that from "this endpoint does not exist"
+is otherwise impossible.
+
+**The edge cache is explicit.** Vercel's CDN honoured `s-maxage` by itself.
+Pages Functions are dynamic by default and cache nothing unless asked, so each
+function reads and writes `caches.default` itself, with the write handed to
+`waitUntil()` so it costs the visitor nothing. Only successful responses are
+stored — an error cached for ten minutes turns a blip into an outage.
 
 **Stale data as a fallback.** When the API is unavailable, responses that hold
 between gameweeks (the league table, squads, the bootstrap) are served from the

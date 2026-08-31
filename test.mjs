@@ -539,6 +539,67 @@ check('the removed modules are gone', () => {
   return 'clean';
 });
 
+/* The Cloudflare build. The Vercel handlers and the Worker bypass are gone —
+   a Pages Function already runs on an edge IP, which is what the bypass
+   existed to provide. */
+check('the build targets Cloudflare Pages', () => {
+  for(const f of ['api/fpl.js', 'api/news.js', 'api/badge.js', 'worker.js',
+                  'vercel.json']){
+    if(fs.existsSync(f)) throw new Error(f + ' is a leftover from the Vercel build');
+  }
+  for(const f of ['functions/api/fpl.js', 'functions/api/news.js',
+                  'functions/api/badge.js', '_headers']){
+    if(!fs.existsSync(f)) throw new Error(f + ' is missing');
+  }
+  return 'functions/ + _headers';
+});
+
+check('the functions use the Pages signature, not Node handlers', () => {
+  for(const f of ['functions/api/fpl.js', 'functions/api/news.js',
+                  'functions/api/badge.js']){
+    const src = fs.readFileSync(f, 'utf8');
+    if(!/export async function onRequest/.test(src))
+      throw new Error(f + ' has no onRequest export');
+    if(/export default async function handler/.test(src))
+      throw new Error(f + ' still has the Vercel handler');
+    if(/process\.env/.test(src))
+      throw new Error(f + ' reads process.env, which does not exist on Workers');
+    if(/require\(|from ["']sharp["']|import\(["']sharp["']\)/.test(src))
+      throw new Error(f + ' pulls in a Node-only dependency');
+  }
+  return '3 functions';
+});
+
+check('the functions and the frontend agree on the API paths', () => {
+  const used = new Set();
+  for(const m of SRC.matchAll(/['"`]\/api\/([a-z]+)/g)) used.add(m[1]);
+  for(const name of used){
+    if(!fs.existsSync('functions/api/' + name + '.js'))
+      throw new Error('the app calls /api/' + name + ' but no function serves it');
+  }
+  return [...used].sort().join(', ');
+});
+
+check('_headers carries the CSP and revalidates the shell', () => {
+  const h = fs.readFileSync('_headers', 'utf8');
+  if(!/Content-Security-Policy:/.test(h)) throw new Error('the CSP is missing');
+  // fonts.gstatic.com is legitimate (the webfonts); www.gstatic.com was the
+  // Firebase SDK and must be gone.
+  if(/firebase|www\.gstatic|identitytoolkit|securetoken/.test(h))
+    throw new Error('a Firebase origin is left in the CSP');
+  if(!/\/sw\.js\n\s+Cache-Control: public, max-age=0/.test(h))
+    throw new Error('sw.js is not set to revalidate');
+  return 'ok';
+});
+
+check('the CSP allows nothing the app does not use', () => {
+  const csp = fs.readFileSync('_headers', 'utf8')
+    .match(/Content-Security-Policy: (.+)/)[1];
+  if(!csp.startsWith("default-src 'none'")) throw new Error('default-src is not none');
+  if(!/connect-src 'self'/.test(csp)) throw new Error('connect-src is too wide');
+  return csp.length + ' characters';
+});
+
 check('index.html and sw.js list the same scripts', () => {
   const inHtml = [...fs.readFileSync('index.html', 'utf8')
     .matchAll(/<script src="\/(js\/[^"]+)"><\/script>/g)].map(m => m[1]);

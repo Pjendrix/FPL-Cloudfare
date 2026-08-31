@@ -1,0 +1,30 @@
+# Cloudflare Pages headers. Replaces vercel.json — Pages ignores that file.
+# The first matching rule per header wins; /* is applied to everything.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+
+# The shell must revalidate, or a deploy would not reach anyone who has the
+# app open. The service worker is the most important one: a stale sw.js keeps
+# serving a stale shell.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+/css/*
+  Cache-Control: public, max-age=0, must-revalidate
+/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Artwork and club marks change with a release, not with a gameweek.
+/assets/*
+  Cache-Control: public, max-age=2592000, immutable
+/club-marks.svg
+  Cache-Control: public, max-age=604800
