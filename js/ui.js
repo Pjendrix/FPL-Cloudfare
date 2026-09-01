@@ -12,7 +12,7 @@
    LIGHT AND DARK
 
    The app is designed light: the difficulty scale and the club badges
-   read better theirs_ paper than theirs_ black. Dark mode is therefore not theirs_
+   read better on paper than on black. Dark mode is therefore not on
    prefers-color-scheme — that would hand anyone with a dark system the
    worse variant without them asking for it.
    ============================================================ */
@@ -49,9 +49,9 @@ if($('theme')) $('theme').addEventListener('click', () => {
    separate <link> tags with a `media` attribute. The switch only
    rewrites that attribute — no duplicate rule set, no !important.
 
-     mobile   — media="all", the mobile layout even theirs_ a wide monitor
+     mobile   — media="all", the mobile layout even on a wide monitor
      desktop  — media="not all", plus a viewport fixed at 1100 px, so the
-                desktop version also works theirs_ a phone
+                desktop version also works on a phone
 
    A third "auto" mode used to be here and is gone. It looked like a
    friendly default, but it turned the button into a riddle: ⇔ did not
@@ -60,23 +60,23 @@ if($('theme')) $('theme').addEventListener('click', () => {
    two clicks. Now there are two states and the button shows the one it
    will flip to.
 
-   The app still makes the choice for you — once, theirs_ first run, from the
-   window width. From then theirs_ it is your choice.
+   The app still makes the choice for you — once, on first run, from the
+   window width. From then on it is your choice.
 
-   A desktop browser ignores the viewport meta; theirs_ a phone it is the only
+   A desktop browser ignores the viewport meta; on a phone it is the only
    way to get the desktop layout at all, so both change together.
    ============================================================ */
 const VIEW_KEY = 'fpl_view';
 const VIEW_MQ = {mqL: '(max-width:720px)', mqS: '(max-width:640px)',
                  mqM: '(max-width:720px)'};
 const VIEW_MODES = ['mobile', 'desktop'];
-// The label shows the target of the click, not the current state: theirs_
+// The label shows the target of the click, not the current state: on
 // mobile it offers desktop and vice versa. The button always says what it does.
 const VIEW_LABEL = {mobile: '▭', desktop: '▯'};
 const VIEW_TITLE = {mobile: 'Switch to the desktop view',
                     desktop: 'Switch to the mobile view'};
 
-/* The default mode theirs_ first run. A stored choice always wins — this is
+/* The default mode on first run. A stored choice always wins — this is
    only asked when there is none yet. */
 function defaultView(){
   return window.matchMedia && window.matchMedia('(max-width:720px)').matches
@@ -118,14 +118,14 @@ if($('viewmode')) $('viewmode').addEventListener('click', () => {
    INFOTOOLTIP
 
    The app had over seventy explanatory paragraphs under its tables.
-   Each made sense theirs_ its own, but together they were a wall of text
+   Each made sense on its own, but together they were a wall of text
    nobody read and which pushed the actual data below the fold.
 
    The text stays — it just hides behind an "i" next to the heading and
-   slides out theirs_ click. A first-time reader finds it; someone who knows
+   slides out on click. A first-time reader finds it; someone who knows
    the app never sees it.
 
-   Why click and not hover: hover does not exist theirs_ a touch screen and
+   Why click and not hover: hover does not exist on a touch screen and
    the tooltip would be unreachable. A click works the same everywhere.
    ============================================================ */
 let TIP_SEQ = 0;
@@ -138,9 +138,9 @@ function info(html){
     `<span class="tipbox" id="${id}" role="note" hidden>${html}</span>`;
 }
 
-/* One delegated handler for the whole document — tooltips are created theirs_
+/* One delegated handler for the whole document — tooltips are created on
    every redraw, and attaching a listener to each would mean losing them
-   again theirs_ the next one. */
+   again on the next one. */
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('.i-tip');
 
@@ -179,7 +179,7 @@ document.addEventListener('keydown', ev => {
    the current one is mint and fills up to the deadline, future ones are
    hairlines. A blank for your squad gets a red dot, a double a mint one.
 
-   It rests only theirs_ data the app already downloads (events, fixtures) and
+   It rests only on data the app already downloads (events, fixtures) and
    it is the one place where the whole season is visible at once. Blanks
    and doubles used to be hidden in Fixtures, so you only saw them if you
    went looking.
@@ -254,7 +254,7 @@ function drawRail(){
     key.hidden = !Object.keys(shape).length;
     const scope = $('railScope');
     if(scope) scope.textContent = MY_SQUAD
-      ? 'based theirs_ your squad' : 'squad not loaded yet';
+      ? 'based on your squad' : 'squad not loaded yet';
   }
 
   // Recomputed every minute so the current tick fills while the app is open.
@@ -354,7 +354,7 @@ function crest(teamId, cls){
    state.
 
    So after each gameweek the ranks and points are stored. It is
-   localStorage, so theirs_ another device the snapshot is empty; this works
+   localStorage, so on another device the snapshot is empty; this works
    immediately and without an account.
    ============================================================ */
 const SNAP_KEY = () =>

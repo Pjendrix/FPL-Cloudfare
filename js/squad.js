@@ -7,11 +7,11 @@
    Why a custom modal and not <dialog>: the app also runs in older WebViews
    in PWA mode, where `showModal()` is missing or behaves differently from
    desktop. An overlay with its own scrim is a few lines and behaves the
-   same everywhere; theirs_ mobile it also becomes a bottom sheet with a single
+   same everywhere; on mobile it also becomes a bottom sheet with a single
    rule in mobile.css, without touching the markup.
 
    Data is fetched lazily: the picks (`entry/{id}/event/{gw}/picks/`) and
-   the gameweek points (`event/{gw}/live/`) are downloaded theirs_ open. For
+   the gameweek points (`event/{gw}/live/`) are downloaded on open. For
    finished gameweeks they stay cached forever, for a live one they are
    refetched after a minute — otherwise the modal would show points that
    had gone stale.
@@ -29,7 +29,7 @@ const SQ_CHIPS = {
   freehit: 'Free Hit', wildcard: 'Wildcard', manager: 'Manager',
 };
 
-let SQ_LIVE = null;      // {gw, pts, mins, ts} — body gws, viz sqLive()
+let SQ_LIVE = null;      // {gw, pts, mins, ts} — gameweek points, see sqLive()
 let SQ_FOCUS = null;     // the element focus returns to after closing
 let SQ_SEQ = 0;          // open order: an older response must not overwrite a newer one
 
@@ -75,7 +75,7 @@ function sqRow(pick, live, lavicka, ef){
       ? '<i class="cap" title="Captain">C</i>'
     : pick.is_vice_captain ? '<i class="cap vc" title="Vice captain">V</i>'
     : '';
-  const sub = ef && ef.subbedIn ? '<i class="sub" title="Came theirs_ as an autosub">↑</i>'
+  const sub = ef && ef.subbedIn ? '<i class="sub" title="Came on as an autosub">↑</i>'
             : ef && ef.subbedOut ? '<i class="sub out" title="Substituted out">↓</i>' : '';
 
   return `<div class="sqp${lavicka ? ' bench' : ''}${min ? '' : ' idle'}">
@@ -90,8 +90,8 @@ function sqRow(pick, live, lavicka, ef){
 function sqBody(pk, live, gw){
   const picks = (pk.picks || []).slice().sort((a, b) => a.position - b.position);
 
-  /* The effective lineup: anyone brought theirs_ by an autosub belongs among
-     the players, not theirs_ the bench — and the total has to match FPL. */
+  /* The effective lineup: anyone brought on by an autosub belongs among
+     the players, not on the bench — and the total has to match FPL. */
   const L = resolveLineup(pk, live.stats, gw);
   const ef = new Map(L.rows.map(r => [r.element, r]));
   const playing = x => (ef.get(x.element) || {}).mult > 0;
@@ -166,7 +166,7 @@ function sqDiff(picks, live, ef){
       ${navic.map(id => chip(id, 'plus')).join('')}
       ${chibiChips(missing, live)}
     </div>
-    <p class="note">On the left the players they have and you do not; theirs_
+    <p class="note">On the left the players they have and you do not; on
       the right the other way round. The number is this gameweek's points.</p>
   </div>`;
 }
@@ -183,37 +183,37 @@ function chibiChips(ids, live){
 function sqShow(m){
   const bylo = !m.hidden;
   m.hidden = false;
-  m.classList.add('theirs_');
+  m.classList.add('on');
   document.body.classList.add('sq-lock');
   if(!bylo && !SQ_HIST){
     // One history entry per open; switching to the comparison adds none.
     try{ history.pushState({sq: 1}, ''); SQ_HIST = true; }catch(e){}
   }
-  const zavri = m.querySelector('.x');
-  if(zavri) zavri.focus();
+  const closeList = m.querySelector('.x');
+  if(closeList) closeList.focus();
 }
 
 function sqClose(){
   const m = $('sqmodal');
   if(!m || m.hidden) return;
   m.hidden = true;
-  m.classList.remove('theirs_');
+  m.classList.remove('on');
   document.body.classList.remove('sq-lock');
   if(SQ_HIST){ SQ_HIST = false; try{ history.back(); }catch(e){} }
   if(SQ_FOCUS && document.contains(SQ_FOCUS)) SQ_FOCUS.focus();
   SQ_FOCUS = null;
 }
 
-async function openSquad(entry, gw, name_, tym){
+async function openSquad(entry, gw, name_, teamName){
   const m = $('sqmodal');
   if(!m) return;
   const mine = ++SQ_SEQ;
 
   SQ_FOCUS = document.activeElement;
   $('sqmTitle').innerHTML = `${esc(name_ || 'Sestava')}
-    <span>${esc(tym || '')}${tym ? ' · ' : ''}GW${gw}
+    <span>${esc(teamName || '')}${teamName ? ' · ' : ''}GW${gw}
       · <a href="https://fantasy.premierleague.com/entry/${entry}/event/${gw}"
-           target="_blank" rel="noopener noreferrer">team theirs_ FPL ↗</a>
+           target="_blank" rel="noopener noreferrer">team on FPL ↗</a>
       ${ENTRY_ID && entry !== ENTRY_ID
         ? `· <button type="button" class="linklike" data-compare="${entry}"
              data-cmpgw="${gw}">compare with my squad</button>` : ''}</span>`;
@@ -277,17 +277,17 @@ async function openCompare(entry, gw, name_){
   $('sqmBody').innerHTML = '<div class="skel"><i></i><i></i><i></i></div>';
 
   try{
-    const [mine_, theirs_, live] = await Promise.all([
+    const [minePicks, rivalPicks, live] = await Promise.all([
       cached('entry/' + ENTRY_ID + '/event/' + gw + '/picks/'),
       cached('entry/' + entry + '/event/' + gw + '/picks/'),
       sqLive(gw),
     ]);
     if(mine !== SQ_SEQ) return;
     $('sqmBody').innerHTML = `<div class="sqcmp">
-        ${sqColumn(mine_, live, gw, 'Your squad')}
-        ${sqColumn(theirs_, live, gw, name_ || 'Rival')}
+        ${sqColumn(minePicks, live, gw, 'Your squad')}
+        ${sqColumn(rivalPicks, live, gw, name_ || 'Rival')}
       </div>
-      <p class="note">You theirs_ the left, your rival theirs_ the right. The totals
+      <p class="note">You on the left, your rival on the right. The totals
         are after autosubs and any armband move, so they match FPL.</p>`;
   }catch(e){
     if(mine !== SQ_SEQ) return;
@@ -299,7 +299,7 @@ async function openCompare(entry, gw, name_){
    Focus and the Back button
 
    A modal without a focus trap is only visually modal: Tab walks out of
-   it under the scrim, where nothing can be clicked. And theirs_ Android, Back
+   it under the scrim, where nothing can be clicked. And on Android, Back
    is the first thing anyone reaches for with a bottom sheet — unhandled,
    it closes the whole PWA.
    ------------------------------------------------------------ */
@@ -329,7 +329,7 @@ window.addEventListener('popstate', () => {
 });
 
 /* A single listener for the whole app. A button only needs attributes:
-   data-squad = entry ID, data-sqgw = kolo, data-sqname / data-sqteam
+   data-squad = entry ID, data-sqgw = gameweek, data-sqname / data-sqteam
    for the modal header. */
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('[data-squad]');
@@ -356,9 +356,9 @@ document.addEventListener('keydown', ev => {
 
 /* Markup for a clickable name. In one place, so the same button does not
    have to be written in every table that lists managers. */
-function squadBtn(entry, gw, name_, tym, cls){
+function squadBtn(entry, gw, name_, teamName, cls){
   if(!entry || !gw) return esc(name_);
   return `<button type="button" class="sqbtn${cls ? ' ' + cls : ''}"
     data-squad="${entry}" data-sqgw="${gw}" data-sqname="${esc(name_)}"
-    data-sqteam="${esc(tym || '')}">${esc(name_)}</button>`;
+    data-sqteam="${esc(teamName || '')}">${esc(name_)}</button>`;
 }

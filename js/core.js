@@ -2,7 +2,7 @@
 
    Configuration, the FPL API proxy and its cache, squad loading, tab
    switching (TABS, selectTab) and the hard refresh.
-   Everything else builds theirs_ this file — it must load first.
+   Everything else builds on this file — it must load first.
 
    The js/ files load as classic <script> tags in a fixed order and share
    one global scope: nothing is exported or imported, but hoisting does
@@ -13,7 +13,7 @@
    CONFIGURATION
 
    Nothing here is hard-coded to one league. Both IDs are supplied by the
-   user theirs_ the entry screen (js/gate.js) and kept in localStorage, so the
+   user on the entry screen (js/gate.js) and kept in localStorage, so the
    same build works for any team and any classic mini-league.
    ============================================================ */
 const CONFIG = {
@@ -26,7 +26,7 @@ const CONFIG = {
 
   /* League size cap. Every extra member costs one request per gameweek
      for picks and one for history, so a big league is both slow and a
-     good way to get rate-limited by FPL. Larger leagues are refused theirs_
+     good way to get rate-limited by FPL. Larger leagues are refused on
      the entry screen — keep this in sync with the message there. */
   maxMembers: 15,
 
@@ -45,7 +45,7 @@ const S = {a:['OK','ok'],d:['Doubtful','wn'],i:['Injured','al'],
            s:['Suspended','al'],u:['Unavailable','al'],n:['Not registered','al']};
 const POS = {1:'GKP',2:'DEF',3:'MID',4:'FWD'};
 const $ = id => document.getElementById(id);
-// The apostrophe is in the list theirs_ purpose: today every attribute uses
+// The apostrophe is in the list on purpose: today every attribute uses
 // double quotes, but one exception is all it takes for a missing &#39; to be a hole.
 const esc = s => String(s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -53,9 +53,9 @@ const esc = s => String(s).replace(/[&<>"']/g,
 /* ------------------------------------------------------------
    Access to the FPL API.
 
-   Three layers theirs_ top of plain fetch, each solving one problem:
+   Three layers on top of plain fetch, each solving one problem:
 
-   1. api()      — a single request, retried theirs_ 429. The FPL rate limit
+   1. api()      — a single request, retried on 429. The FPL rate limit
                    is not a permanent error, it just says "wait".
    2. cached()   — memory for the lifetime of the page. The league table
                    and the hub hit the exact same URLs; the second time is free.
@@ -83,7 +83,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const STALE_KEY = 'sc:stale:';
 const STALE_TTL = 24 * 60 * 60 * 1000;   // anything older than a day is dropped
 
-// event/N/live/ is missing theirs_ purpose — see the comment above.
+// event/N/live/ is missing on purpose — see the comment above.
 const STALE_OK = [
   /^bootstrap-static\/$/,
   /^fixtures\//,
@@ -125,7 +125,7 @@ function staleClear(){
   }catch(e){}
 }
 
-/* Age of the oldest data currently theirs_ screen. null = everything is fresh.
+/* Age of the oldest data currently on screen. null = everything is fresh.
    The status bar turns this into a warning. */
 let STALE_USED = null;
 
@@ -329,7 +329,7 @@ async function load(id){
    And if the captain does not play, the multiplier moves to the vice
    captain.
 
-   The app used to do none of this: the shirt view theirs_ Home, the live
+   The app used to do none of this: the shirt view on Home, the live
    league table and gameweek awards all summed players with `multiplier > 0`
    and nothing more. After a finished gameweek that showed fewer points
    than the manager really had.
@@ -355,7 +355,7 @@ async function load(id){
    back and forth all Saturday.
 
    Without fixtures (or for a player with no match) the answer is `false`:
-   better not to substitute than to substitute theirs_ a guess. */
+   better not to substitute than to substitute on a guess. */
 function playerDone(pid, gw){
   const el = (BOOT && BOOT.elements || []).find(p => p.id === pid);
   if(!el || !Array.isArray(FIX)) return false;
@@ -561,7 +561,7 @@ function render(entry, picks, startGw, liveCtx){
 
   /* The effective lineup after autosubs and a possible armband move.
      Without it the shirt view would show zero for a player FPL has long
-     since replaced — and the gameweek total would be lower than theirs_ FPL. */
+     since replaced — and the gameweek total would be lower than on FPL. */
   const lineup = live ? resolveLineup(picks, live, liveGw) : null;
   const efekt = lineup
     ? new Map(lineup.rows.map(r => [r.element, r])) : null;
@@ -578,7 +578,7 @@ function render(entry, picks, startGw, liveCtx){
     const gwPts = ef ? ef.pts : null;
 
     return {p, pk, team: teams[p.team], f, ef,
-            // A player brought theirs_ by an autosub is playing, even if he was benched.
+            // A player brought on by an autosub is playing, even if he was benched.
             starting: ef ? ef.mult > 0 : pk.position <= 11,
             st, gwPts,
             played: st ? st.minutes > 0 : false,
@@ -588,7 +588,7 @@ function render(entry, picks, startGw, liveCtx){
   const rows = {1:[],2:[],3:[],4:[]};
   squad.filter(s => s.starting).forEach(s => rows[s.p.element_type].push(s));
 
-  // The gameweek total — the number people open the app for theirs_ a Saturday.
+  // The gameweek total — the number people open the app for on a Saturday.
   const liveTotal = lineup ? lineup.total : null;
   LAST_LIVE_TOTAL = liveTotal;
   if(typeof drawChip === 'function') drawChip();
@@ -706,7 +706,7 @@ function render(entry, picks, startGw, liveCtx){
     const opp = teams[f.opp];
     const label = opp ? (f.home ? opp.short_name.toUpperCase() : opp.short_name.toLowerCase()) : '?';
     return `<span class="${fdrClass(f.od)}" title="${esc(opp ? opp.name : '')} ${
-      f.home ? 'doma' : 'venku'}">${esc(label)}<small>${f.od.toFixed(1)}</small></span>`;
+      f.home ? 'home' : 'away'}">${esc(label)}<small>${f.od.toFixed(1)}</small></span>`;
   };
 
   const nextThree = p => {
@@ -714,7 +714,7 @@ function render(entry, picks, startGw, liveCtx){
     for(let gw = startGw; gw < startGw + 3; gw++){
       const fxs = gwFixtures(p.team, gw);
       if(!fxs.length){
-        out.push('<span class="blank" title="Blank — klub v tomhle kole nehraje">–<small>bl</small></span>');
+        out.push('<span class="blank" title="Blank — the club does not play this gameweek">–<small>bl</small></span>');
       } else {
         // Double: both abbreviations in one cell, so a gameweek stays a gameweek.
         out.push(fxs.map(f => gwCell({...f, od: ownFdr(p.team, f.opp, f.home, f.d)})).join(''));
@@ -737,7 +737,7 @@ function render(entry, picks, startGw, liveCtx){
 
     /* Sort values go into data attributes rather than being parsed from
        the text. The cells hold "5.5▲", "8.7 %" and "–"; pulling numbers
-       out of that with a regex would break silently theirs_ the first
+       out of that with a regex would break silently on the first
        non-numeric state. A missing value is -1 so it sorts last. */
     return `<div class="prow${s2.starting ? '' : ' benched'}${owned < 5 ? ' diff' : ''}"
       data-cena="${s2.p.now_cost}"
@@ -814,9 +814,9 @@ function render(entry, picks, startGw, liveCtx){
      rearrange what is already there — no second render, no second copy of
      the data that could drift apart from the first. */
   const squadTable = `<div class="subnav" role="tablist" aria-label="Squad view">
-      <button type="button" role="tab" data-squadview="pos"
+      <button type="button" class="sub-btn" role="tab" data-squadview="pos"
         aria-selected="${SQUAD_VIEW === 'pos'}">By position</button>
-      <button type="button" role="tab" data-squadview="all"
+      <button type="button" class="sub-btn" role="tab" data-squadview="all"
         aria-selected="${SQUAD_VIEW === 'all'}">Whole squad</button>
     </div>
     <div class="squadlist${live ? ' live' : ''}${
@@ -834,7 +834,7 @@ function render(entry, picks, startGw, liveCtx){
     <div class="meta">
       <div><div class="k">Team</div><div class="v">${esc(entry.name)}</div></div>
       <div><div class="k">Manager</div><div class="v">${esc(entry.player_first_name + ' ' + entry.player_last_name)}</div></div>
-      <div><div class="k">Body</div><div class="v">${entry.summary_overall_points ?? '–'}</div></div>
+      <div><div class="k">Points</div><div class="v">${entry.summary_overall_points ?? '–'}</div></div>
       <div><div class="k">Overall rank</div><div class="v">${entry.summary_overall_rank ? entry.summary_overall_rank.toLocaleString('en-GB') : '–'}</div></div>
       <div><div class="k">Next gameweek</div><div class="v">GW${startGw}</div></div>
     </div>
@@ -842,7 +842,7 @@ function render(entry, picks, startGw, liveCtx){
     <div class="pitch">
       ${live ? `<div class="livebar${liveCtx.finished ? ' done' : ''}">
         <div class="big">${liveTotal}<span>pts in GW${liveGw}</span></div>
-        <div><b>${benchTotal}</b><span>theirs_ the bench</span></div>
+        <div><b>${benchTotal}</b><span>on the bench</span></div>
         <div><b>${toPlay || '–'}</b><span>yet to play</span></div>
         <div class="txt">${liveCtx.finished
           ? 'The gameweek is closed, the numbers are final.'
@@ -882,6 +882,33 @@ function render(entry, picks, startGw, liveCtx){
   applySquadSort();
 }
 
+/* ------------------------------------------------------------
+   A note about where a list is stored.
+
+   Watchlists live in localStorage, which people reasonably assume means
+   "saved". It does — but only in this browser. Saying so once under the list
+   is cheaper than an explanation after someone loses it.
+   ------------------------------------------------------------ */
+function storageNote(what){
+  const subject = what || 'This list';
+  return `<p class="note store">${esc(subject)} is stored in this browser only.
+    You will not see it on another device, and clearing your browser data
+    removes it.</p>`;
+}
+
+/* A manual correction of the free transfer count.
+
+   FPL does not send it, so it can only be derived from transfer history — and
+   that is one request per team plus assumptions about chips. A wrong number is
+   worse than none, so the app takes what the user tells it and otherwise says
+   nothing. */
+const FT_KEY = () => 'fpl_ft:' + (ENTRY_ID || '0');
+
+function ftOverride(){
+  const v = parseInt(localStorage.getItem(FT_KEY()), 10);
+  return Number.isFinite(v) && v >= 0 && v <= 5 ? v : null;
+}
+
 /* ============================================================
    HOME
 
@@ -891,7 +918,7 @@ function render(entry, picks, startGw, liveCtx){
 
    So Home shows nothing new. It only pulls out what has a deadline:
    who will not play, whose price moves tonight and what is happening
-   to the players theirs_ the watchlist. Everything else stays where it was.
+   to the players on the watchlist. Everything else stays where it was.
 
    The panel redraws from state the app already has (HOME), so it costs
    no extra request. When the squad is not public yet, at least the
@@ -945,11 +972,11 @@ function homeMetrics(){
   const cur = BOOT.events.find(e => e.is_current);
   const pts = Number.isFinite(liveTotal) && liveTotal !== null
     ? liveTotal : (entry ? entry.summary_event_points : null);
-  card('Body' + (cur ? ' GW' + cur.id : ''), pts === null ? '—' : pts);
+  card('Points' + (cur ? ' GW' + cur.id : ''), pts === null ? '—' : pts);
 
   if(entry && entry.summary_overall_rank)
     card('Overall rank', entry.summary_overall_rank.toLocaleString('en-GB'));
-  else card('Body celkem', entry ? entry.summary_overall_points : '—');
+  else card('Total points', entry ? entry.summary_overall_points : '—');
 
   if(entry && Number.isFinite(entry.last_deadline_value))
     card('Team value', (entry.last_deadline_value / 10).toFixed(1),
@@ -994,7 +1021,7 @@ function homeAttention(){
       items.push({rank: 1, cls: 'wn', p, tm,
         txt: chance + ' % · doubtful' + (news ? ' · ' + news.toLowerCase() : '')});
     } else if(gwFixtures(p.team, startGw).length === 0){
-      items.push({rank: 2, cls: 'mute', p, tm, txt: 'v GW' + startGw + ' nehraje (blank)'});
+      items.push({rank: 2, cls: 'mute', p, tm, txt: 'does not play in GW' + startGw + ' (blank)'});
     }
   });
 
@@ -1015,8 +1042,8 @@ function homeAttention(){
   </div>`;
 }
 
-/* Price moves limited to players that concern me: my squad theirs_ the left,
-   the watchlist theirs_ the right. The rest of the league belongs in Prices. */
+/* Price moves limited to players that concern me: my squad on the left,
+   the watchlist on the right. The rest of the league belongs in Prices. */
 function homePrices(){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   const projFor = (p, o) =>
@@ -1149,7 +1176,7 @@ const SORT_ASC_FIRST = new Set(['fdr']);
 
    Read from the original order rather than the current DOM state —
    otherwise the first reorder would destroy the knowledge of which rows
-   belong to which group. The list remembers its original order theirs_ first
+   belong to which group. The list remembers its original order on first
    touch; a squad redraw creates a new element, so the memory is dropped. */
 function squadGroups(list){
   if(!list._order) list._order = [...list.children];
@@ -1188,8 +1215,8 @@ function applySquadSort(){
   list.classList.toggle('flat', SQUAD_VIEW === 'all');
 
   list.querySelectorAll('[data-sort]').forEach(h => {
-    const theirs_ = SQUAD_SORT && SQUAD_SORT.key === h.dataset.sort;
-    h.setAttribute('aria-sort', theirs_
+    const on = SQUAD_SORT && SQUAD_SORT.key === h.dataset.sort;
+    h.setAttribute('aria-sort', on
       ? (SQUAD_SORT.dir === 1 ? 'ascending' : 'descending') : 'none');
   });
 
@@ -1248,7 +1275,7 @@ document.addEventListener('keydown', ev => {
    LAST GAMEWEEK AWARDS ON HOME
 
    Awards are computed by buildAwards() in js/tabs.js and used to live only
-   in the League hub. They belong theirs_ Home because they are the one set of
+   in the League hub. They belong on Home because they are the one set of
    league numbers read in hindsight — people want to be told who won the
    gameweek, not to go looking for it.
 
@@ -1284,7 +1311,7 @@ function homeAwardsLoad(){
 }
 
 function homeAwards(){
-  // Awards rely theirs_ code from js/tabs.js, which loads after core.js, so its
+  // Awards rely on code from js/tabs.js, which loads after core.js, so its
   // functions may only be touched at runtime, not at definition time.
   const box = inner => `<div class="hbox hawards">
     <h3><i class="hi">🏆</i>Last gameweek awards${
@@ -1338,7 +1365,7 @@ function drawHome(){
     return;
   }
 
-  /* No panel header. Navigation says I am theirs_ Home, and the deadline sits
+  /* No panel header. Navigation says I am on Home, and the deadline sits
      in the bar above the content — saying it twice only pushed numbers down. */
   out.innerHTML = `
     ${homeMetrics()}
@@ -1350,7 +1377,7 @@ function drawHome(){
 }
 
 /* "Manage" links and friends switch tabs. Delegated, because Home is
-   redrawn theirs_ every watchlist change. */
+   redrawn on every watchlist change. */
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('button[data-goto]');
   if(btn) selectTab(btn.dataset.goto);
@@ -1370,10 +1397,10 @@ const TABS = [['t-home','p-home'], ['t-squad','p-squad'],
 /* What happens the first time a tab is opened.
 
    League tabs used to load only after a button click, because they cost
-   dozens of requests. But that button was the only thing theirs_ the panel —
+   dozens of requests. But that button was the only thing on the panel —
    nobody could miss it and nobody chose it voluntarily.
 
-   So we load theirs_ tab open, not at app start: whoever does not look at the
+   So we load on tab open, not at app start: whoever does not look at the
    league downloads nothing, and whoever does need not click. The second
    league tab is then almost free — per-member requests go through cached()
    and are exactly the same URLs.
@@ -1399,15 +1426,15 @@ const TAB_DONE = new Set();
 
 function selectTab(tid){
   TABS.forEach(([t, p]) => {
-    const theirs_ = t === tid;
-    $(t).setAttribute('aria-selected', theirs_);
-    $(t).tabIndex = theirs_ ? 0 : -1;
-    $(p).hidden = !theirs_;
+    const on = t === tid;
+    $(t).setAttribute('aria-selected', on);
+    $(t).tabIndex = on ? 0 : -1;
+    $(p).hidden = !on;
   });
   $(tid).focus();
 
   /* Panels have tabindex="-1" so focus can move to the content. Without
-     this the keyboard stayed theirs_ the button and a screen reader never
+     this the keyboard stayed on the button and a screen reader never
      learned that the content had changed. */
   const pid = (TABS.find(([t]) => t === tid) || [])[1];
   if(pid && $(pid)) $(pid).setAttribute('aria-busy', 'false');
@@ -1643,7 +1670,7 @@ function rankChart(members, hist){
   const x = g => PL + (gws === 1 ? 0 : (g * (W - PL - PR)) / (gws - 1));
   const y = r => PT + (n === 1 ? 0 : ((r - 1) * (H - PT - PB)) / (n - 1));
 
-  // Only as many labels theirs_ the vertical axis as fit legibly.
+  // Only as many labels on the vertical axis as fit legibly.
   const step = Math.max(1, Math.ceil(n / 12));
 
   const grid = [];
@@ -1696,7 +1723,7 @@ function renderLeague(st, members, hist, picks, cur, truncated){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   const myId = ENTRY_ID || parseInt(localStorage.getItem('fpl_entry') || '0', 10);
 
-  /* --- tabulka poradi --- */
+  /* --- the standings table --- */
   const table = `<table>
     <thead><tr>
       <th class="n">#</th><th>Manager</th><th class="hide-s">Team</th>
@@ -1723,8 +1750,8 @@ function renderLeague(st, members, hist, picks, cur, truncated){
   }
 
   /* --- who_ koho ma --- */
-  const owners = {};   // playerId -> [jmena manazeru]
-  const caps = {};     // playerId -> [jmena]
+  const owners = {};   // playerId -> [manager names]
+  const caps = {};     // playerId -> [manager names]
   const byEntry = {};  // entryId -> Set(playerId)
 
   members.forEach((m, i) => {
@@ -1804,7 +1831,7 @@ function renderLeague(st, members, hist, picks, cur, truncated){
     ['Trend', rankChart(members, hist)],
     ['Differences', diffHtml],
     ['Who owns whom', ownTable],
-    ['Historie', '<div id="histbox"></div>'],
+    ['Season history', '<div id="histbox"></div>'],
   ];
 
   const cap = truncated
@@ -1836,7 +1863,7 @@ function renderLeague(st, members, hist, picks, cur, truncated){
 
   // History is dozens of requests, so it only starts when asked for.
   const histBtn = [...$('lout').querySelectorAll('.sub-btn')]
-    .find(b => b.textContent.trim() === 'Historie');
+    .find(b => b.textContent.trim() === 'Season history');
   if(histBtn) histBtn.addEventListener('click', () => {
     if(!$('histbox').dataset.loaded){
       $('histbox').dataset.loaded = '1';
@@ -1906,7 +1933,7 @@ async function renderLive(members, picks, cur, myId){
 
   box.innerHTML = `<table>
       <thead><tr><th>#</th><th>Team</th><th>Captain</th><th>To play</th>
-        <th>Kolo</th><th>Celkem</th></tr></thead>
+        <th>GW</th><th>Total</th></tr></thead>
       <tbody>${body}</tbody>
     </table>
     <p class="note">Live standings from the points players have right now. Bonus is

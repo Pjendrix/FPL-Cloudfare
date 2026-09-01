@@ -39,7 +39,7 @@
                  '<path d="M17 5.2h2.5v1.3A3 3 0 0 1 17 9.4"/>' +
                  '<path d="M10.4 13.2h3.2l.6 3.4H9.8z"/><path d="M8.4 20.2h7.2"/>',
     't-hub':     '<path d="M4 10v4h3l7 3.8V6.2L7 10z"/><path d="M17.4 9.4a4 4 0 0 1 0 5.2"/>',
-    /* Injuries: a medical cross in a circle. The cross theirs_ its own was
+    /* Injuries: a medical cross in a circle. The cross on its own was
        indistinguishable from "add". */
     't-inj':     '<circle cx="12" cy="12" r="8.2"/>' +
                  '<path d="M12 8.4v7.2"/><path d="M8.4 12h7.2"/>',
@@ -56,7 +56,7 @@
                  '<circle cx="18.4" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
   };
 
-  /* Five sections plus More is what fits: six tiles is the ceiling theirs_ a
+  /* Five sections plus More is what fits: six tiles is the ceiling on a
      360px display, and at seven the labels are clipped into nonsense.
      The labels are therefore shortened ("Hub" instead of "League hub");
      the sheet shows the full names, so nothing is lost.
@@ -127,11 +127,11 @@
   function openSheet(){
     buildSheet();
     sheet.hidden = false;
-    sheet.classList.add('theirs_');
+    sheet.classList.add('on');
     document.getElementById('mmore').setAttribute('aria-expanded', 'true');
   }
   function closeSheet(){
-    sheet.classList.remove('theirs_');
+    sheet.classList.remove('on');
     sheet.hidden = true;
     const m = document.getElementById('mmore');
     if(m) m.setAttribute('aria-expanded', 'false');
@@ -146,7 +146,7 @@
 
     const more = ev.target.closest('#mmore');
     if(more){
-      sheet.classList.contains('theirs_') ? closeSheet() : openSheet();
+      sheet.classList.contains('on') ? closeSheet() : openSheet();
       return;
     }
 
@@ -169,7 +169,7 @@
   });
 
   document.addEventListener('keydown', ev => {
-    if(ev.key === 'Escape' && sheet.classList.contains('theirs_')) closeSheet();
+    if(ev.key === 'Escape' && sheet.classList.contains('on')) closeSheet();
   });
 
   /* ---------- highlighting the active section ----------
@@ -227,7 +227,7 @@
   let sx = 0, sy = 0, live = false;
 
   document.addEventListener('touchstart', ev => {
-    if(ev.touches.length !== 1 || sheet.classList.contains('theirs_')){ live = false; return; }
+    if(ev.touches.length !== 1 || sheet.classList.contains('on')){ live = false; return; }
     if(ev.target.closest('.tscroll,.subnav,.gwnav,.phasenav,.nav,input,select,textarea,#mnav')){
       live = false; return;
     }

@@ -1,7 +1,7 @@
 /* FPL Squad Check — archive of finished gameweeks
 
    The picks and points of a finished gameweek never change again. They
-   were still downloaded theirs_ every visit: one request per gameweek for
+   were still downloaded on every visit: one request per gameweek for
    player points plus one per league member for picks. For a ten-member
    league that is eleven requests per gameweek, and over ten gameweeks
    more than a hundred — every time someone opens an older gameweek.
@@ -173,7 +173,7 @@ function snapLocalWrite(g, snap){
 }
 
 /* The archive belongs to the league, not the user — switching to another
-   entry ID in the same league must not clear it. Called theirs_ sign-out. */
+   entry ID in the same league must not clear it. Called on sign-out. */
 function snapClear(){
   try{
     for(const k of Object.keys(localStorage))

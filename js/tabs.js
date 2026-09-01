@@ -42,7 +42,7 @@ function fixtureLine(teamId, info){
   const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
   return info.fixtures.map(f => `<span class="fxpair">
       ${crest(teamId, 'sm')}<b>${esc(teams[teamId].short_name)}</b>
-      <span class="vs">${f.home ? 'doma s' : 'venku na'}</span>
+      <span class="vs">${f.home ? 'at home to' : 'away at'}</span>
       ${crest(f.opp, 'sm')}<b>${esc(teams[f.opp].short_name)}</b>
     </span>`).join('<span class="amp">a</span>');
 }
@@ -160,7 +160,7 @@ const TOP_FIELD = [
     v => v.toFixed(2), null],
   ['expected_assists', 'xA', 'expected assists',
     v => v.toFixed(2), null],
-  ['expected_goal_involvements', 'xGI', 'xG a xA dohromady',
+  ['expected_goal_involvements', 'xGI', 'xG and xA combined',
     v => v.toFixed(2), null],
   ['expected_goal_involvements_per_90', 'xGI / 90',
     'expected involvement per 90 minutes', v => v.toFixed(2), null],
@@ -254,12 +254,12 @@ function compareRows(a, b){
     [label, fmt(fn(a)), fmt(fn(b)), fn(a), fn(b), higher];
 
   const rows = [
-    both('Body celkem', p => p.total_points, v => v),
+    both('Total points', p => p.total_points, v => v),
     both('Points per match', p => parseFloat(p.points_per_game) || 0, v => v.toFixed(1)),
     both('Forma', p => parseFloat(p.form) || 0, v => v.toFixed(1)),
     both('FPL projection · next gameweek', p => epNext(p) || 0, v => v.toFixed(1)),
-    both('Cena', p => p.now_cost / 10, v => v.toFixed(1) + 'm', false),
-    both('Body za milion', p => p.total_points / (p.now_cost / 10), v => v.toFixed(1)),
+    both('Price', p => p.now_cost / 10, v => v.toFixed(1) + 'm', false),
+    both('Points per million', p => p.total_points / (p.now_cost / 10), v => v.toFixed(1)),
     both('Minuty', p => p.minutes, v => v),
     both('Starty', p => p.starts || 0, v => v),
     both('Owned %', p => parseFloat(p.selected_by_percent) || 0, v => v.toFixed(1) + ' %'),
@@ -329,10 +329,10 @@ function drawCompare(){
       <table class="ctab"><tbody>${rows}</tbody></table>
       <p class="note">${diff < 1.5
         ? `Over the next five gameweeks they are practically indistinguishable (a difference of
-           ${diff.toFixed(1)} bodu). Rozhodni podle awards_ nebo podle toho,
-           who your mini-league owns.`
+           ${diff.toFixed(1)} points). Decide on the fixtures, or on who your
+           mini-league already owns.`
         : `Over the next five gameweeks <b>${esc(lead.web_name)}</b> leads by
-           ${diff.toFixed(1)} bodu. ${dPrice > 0
+           ${diff.toFixed(1)} points. ${dPrice > 0
              ? `But he costs ${dPrice.toFixed(1)}m more — ask whether that
                 difference would work harder elsewhere in the squad.`
              : dPrice < 0 ? 'And he is cheaper too.' : 'For the same money.'}`}
@@ -452,7 +452,7 @@ async function showPlayer(pid){
   const table = hist.length ? `<table style="margin-top:14px">
     <thead><tr><th>GW</th><th class="hide-s">Opponent</th><th class="n">Min</th>
       <th class="n">G</th><th class="n">A</th><th class="n hide-s">xG</th>
-      <th class="n hide-s">xA</th><th class="n">Bon</th><th class="n">Body</th></tr></thead>
+      <th class="n hide-s">xA</th><th class="n">Bon</th><th class="n">Pts</th></tr></thead>
     <tbody>${hist.slice().reverse().slice(0, 12).map(h => {
       const opp = teams[h.opponent_team];
       return `<tr>
@@ -475,7 +475,7 @@ async function showPlayer(pid){
     <h2>Previous seasons</h2>
     <table>
       <thead><tr><th>Season</th><th class="n">Points</th><th class="n">Minutes</th>
-        <th class="n hide-s">Cena start</th><th class="n hide-s">Cena konec</th></tr></thead>
+        <th class="n hide-s">Start price</th><th class="n hide-s">End price</th></tr></thead>
       <tbody>${past.map(x => `<tr>
         <td>${esc(x.season_name)}</td>
         <td class="n"><b>${x.total_points}</b></td>
@@ -511,7 +511,7 @@ async function showPlayer(pid){
     <h2 style="margin-top:16px">Last 5 gameweeks</h2>
     ${pills}
     <div class="kpis">
-      <div><div class="k">Body</div><div class="v">${agg.pts}</div></div>
+      <div><div class="k">Points</div><div class="v">${agg.pts}</div></div>
       <div><div class="k">Minuty</div><div class="v">${agg.min}</div></div>
       <div><div class="k">G + A</div><div class="v">${agg.g}+${agg.as}</div></div>
       <div><div class="k">xG + xA</div><div class="v">${(agg.xg + agg.xa).toFixed(2)}</div></div>
@@ -526,7 +526,7 @@ async function showPlayer(pid){
 
     <h2>Whole season</h2>
     <div class="kpis">
-      <div><div class="k">Body</div><div class="v">${season.pts}</div></div>
+      <div><div class="k">Points</div><div class="v">${season.pts}</div></div>
       <div><div class="k">Matches</div><div class="v">${hist.length}</div></div>
       <div><div class="k">Minuty</div><div class="v">${season.min}</div></div>
       <div><div class="k">G + A</div><div class="v">${season.g}+${season.as}</div></div>
@@ -602,7 +602,7 @@ async function loadHub(){
   }
 }
 
-// poradi v lize po jednotlivych kolech, z kumulativnich bodu
+// League rank gameweek by gameweek, from cumulative points.
 /* Points per gameweek, indexed by gameweek number — not by position in
 
    the array. A manager who joined FPL in GW5 has current[0].round === 5,
@@ -673,8 +673,8 @@ function gwPhase(gwId){
   const ev = BOOT.events.find(e => e.id === gwId);
   if(!ev) return 'running';
   if(ev.data_checked) return 'final';
-  const zRozpisu = gwPhaseFromFixtures(gwId);
-  if(zRozpisu) return zRozpisu;
+  const fromFixtures = gwPhaseFromFixtures(gwId);
+  if(fromFixtures) return fromFixtures;
   if(ev.finished) return 'unchecked';
   return 'running';
 }
@@ -864,7 +864,7 @@ function buildNews(gwId, picksFor){
     }
     if(best && best.d <= 3 && best.poz > 1){
       news.push({
-        cls: 'warn', kicker: 'O fous',
+        cls: 'warn', kicker: 'By a whisker',
         head: best.d === 0
           ? `${esc(best.a.m.player_name)} and ${esc(best.b.m.player_name)} finished on the same points`
           : `${esc(best.a.m.player_name)} edged ${esc(best.b.m.player_name)} by ${best.d}`,
@@ -875,23 +875,23 @@ function buildNews(gwId, picksFor){
 
   /* Leading overall. Gameweek points and the overall table are two
      different stories; the gameweek winner need not lead the league. */
-  const celkem = gw.filter(x => Number.isFinite(x.ev.total_points))
+  const byTotal = gw.filter(x => Number.isFinite(x.ev.total_points))
     .sort((a, b) => b.ev.total_points - a.ev.total_points);
-  if(celkem.length >= 2){
-    const leader = celkem[0], druhy = celkem[1];
-    const lead_ = leader.ev.total_points - druhy.ev.total_points;
+  if(byTotal.length >= 2){
+    const leader = byTotal[0], runnerUp = byTotal[1];
+    const lead_ = leader.ev.total_points - runnerUp.ev.total_points;
     news.push({
       cls: 'good', kicker: 'Leading the league',
-      head: `${esc(leader.m.player_name)} vede s ${leader.ev.total_points} body`,
+      head: `${esc(leader.m.player_name)} leads with ${leader.ev.total_points} points`,
       body: leader.m.entry === top.m.entry
         ? `He won the gameweek and leads the table — <b>${lead_}</b> points clear of `
-          + `${esc(druhy.m.player_name)}.`
+          + `${esc(runnerUp.m.player_name)}.`
         : `${esc(top.m.player_name)} won the gameweek, but the table belongs to `
           + `<b>${esc(leader.m.player_name)}</b>, ${lead_} points clear.`,
     });
   }
 
-  /* Pohyb v tabulce.
+  /* Movement in the table.
 
      This is the one story that cannot be shown during a live gameweek
      even with a caveat: it would compare a half-played state with the last
@@ -1069,7 +1069,7 @@ function buildCollective(){
       </div>`;
     }).join('');
 
-  // sablona: jak moc jsou si sestavy podobne
+  // The template: how alike the squads are.
   const own = {};
   members.forEach((m, i) => {
     const pk = picks[i];
@@ -1080,7 +1080,7 @@ function buildCollective(){
   const universal = Object.entries(own).filter(([, c]) => c === n);
   const templatePct = Math.round(core.length / 15 * 100);
 
-  // liga proti proudu: kde se vlastnictvi lisi od globalu
+  // The league against the grain: where ownership differs from global.
   const contrarian = Object.entries(own)
     .map(([pid, c]) => {
       const p = els[pid];
@@ -1105,7 +1105,7 @@ function buildCollective(){
     <div class="kpis">
       <div><div class="k">League core</div><div class="v">${core.length}</div></div>
       <div><div class="k">Owned by all</div><div class="v">${universal.length}</div></div>
-      <div><div class="k">Shoda</div><div class="v">${templatePct} %</div></div>
+      <div><div class="k">Overlap</div><div class="v">${templatePct} %</div></div>
     </div>
     
 
@@ -1176,10 +1176,10 @@ function benchRows(pk, live, gw){
   /* Anyone brought on by an autosub was not sitting on the bench —
      blaming the manager for points he did get is worse than no award. */
   const L = resolveLineup(pk, liveStats(live), gw != null ? gw : HUB.cur.id);
-  const hral = new Set(L.rows.filter(r => r.mult > 0).map(r => r.element));
+  const played = new Set(L.rows.filter(r => r.mult > 0).map(r => r.element));
 
   return pk.picks
-    .filter(p => p.position >= 12 && p.position <= 15 && !hral.has(p.element))
+    .filter(p => p.position >= 12 && p.position <= 15 && !played.has(p.element))
     .map(p => ({pid: p.element, pts: body.get(p.element) || 0}));
 }
 
@@ -1217,14 +1217,14 @@ function benchPoints(row, pk, live, gwId){
 function unluckiest(gw, picksFor, live, gwId){
   const picks = picksFor || [];
   const s = gw.map(x => ({...x, benched: benchPoints(x, picks[x.i], live, gwId)}))
-    .filter(x => Number.isFinite(x.lav));
+    .filter(x => Number.isFinite(x.benched));
   if(!s.length) return {all_: [], best: []};
-  const max = Math.max(...s.map(x => x.lav));
-  return {all_: s, best: max > 0 ? s.filter(x => x.lav === max) : []};
+  const max = Math.max(...s.map(x => x.benched));
+  return {all_: s, best: max > 0 ? s.filter(x => x.benched === max) : []};
 }
 
-/* A backwards-compatible single value — used by the hall of fame, which
-   jen to, who_ cenu dostal. */
+/* A single value for the hall of fame, which only needs to know who took
+   the award. */
 function unluckiest1(gw, picksFor, live, gwId){
   const {best} = unluckiest(gw, picksFor, live, gwId);
   return best.length ? best[0] : null;
@@ -1236,7 +1236,7 @@ function unluckiest1(gw, picksFor, live, gwId){
    points) and when one of them arrives in an unexpected shape the card
    simply is not there. This prints where the chain breaks, so it does not
    have to be guessed from what is missing. Call it manually: debugAwards(1). */
-window.debugCeny = function(gw){
+window.debugAwards = function(gw){
   const g = gw || NEWS_GW || (HUB && HUB.cur.id);
   if(!HUB){ console.log('HUB is not loaded — open the League hub first.'); return; }
   const picks = NEWS_PICKS.get(g), live = NEWS_LIVE.get(g);
@@ -1315,31 +1315,31 @@ function buildAwards(gwId, picksFor, liveFor){
     /* `who` stays plain text — the hall of fame and the tests read it. The
        clickable variant sits beside it as `whoHtml`, so a card can link to
        a squad without the award text becoming HTML. */
-    const jmenaLav = list => list.length <= 3
+    const benchNames = list => list.length <= 3
       ? list.map(c => esc(c.m.player_name)).join(', ')
       : esc(list[0].m.player_name) + ' and ' + (list.length - 1) + ' more';
 
     if(allEqual && benchAll.length > 1){
       out.push({
-        key: 'bench', who: 'Nobody stood out', val: benchTop[0].lav + ' pts',
+        key: 'bench', who: 'Nobody stood out', val: benchTop[0].benched + ' pts',
         sub: `All ${benchAll.length} managers left the same on the bench.`,
       });
     }else if(benchMajority){
       out.push({
-        key: 'bench', who: 'Bez awards_', val: '—',
+        key: 'bench', who: 'No award', val: '—',
         sub: `Most of the league left the same points on the bench `
           + `(${benchTop.length} of ${benchAll.length}) — no award this gameweek.`,
       });
     }else{
-      const who_ = benchTop[0];
-      const best = benchTop.length === 1 ? benchBest((picksFor || [])[who_.i], liveFor, id) : null;
+      const worstOff = benchTop[0];
+      const best = benchTop.length === 1 ? benchBest((picksFor || [])[worstOff.i], liveFor, id) : null;
       out.push({
         key: 'bench',
-        who: jmenaLav(benchTop),
+        who: benchNames(benchTop),
         whoHtml: benchTop.length <= 3
           ? benchTop.map(c => squadBtn(c.m.entry, id, c.m.player_name, c.m.entry_name)).join(', ')
           : null,
-        val: who_.benchPts + ' pts',
+        val: worstOff.benched + ' pts',
         sub: benchTop.length > 1
           ? 'They left the same on the bench — the award is shared.'
           : best
@@ -1349,7 +1349,7 @@ function buildAwards(gwId, picksFor, liveFor){
     }
   }
 
-  // kapitanske awards_
+  // Captain awards.
   /* Captain awards.
 
      An award only means something as a distinction. When half the league
@@ -1366,7 +1366,7 @@ function buildAwards(gwId, picksFor, liveFor){
     const best = dle[0], worst = dle[dle.length - 1];
     const winners = dle.filter(c => c.pts === best.pts);
     const lastPlace = dle.filter(c => c.pts === worst.pts);
-    const vetsina = list => list.length * 2 >= caps.length;
+    const isMajority = list => list.length * 2 >= caps.length;
 
     const namesOf = list => list.length <= 3
       ? list.map(c => esc(c.m.player_name)).join(', ')
@@ -1396,8 +1396,8 @@ function buildAwards(gwId, picksFor, liveFor){
         sub: 'Nobody flopped harder than the rest — everyone on the same points.',
       });
     }else{
-      out.push(vetsina(winners)
-        ? {key: 'cap', who: 'Bez awards_', val: '—',
+      out.push(isMajority(winners)
+        ? {key: 'cap', who: 'No award', val: '—',
            sub: `${reason(winners)} — no award this gameweek.`}
         : {key: 'cap', who: namesOf(winners), val: best.pts + ' pts',
            whoHtml: winners.length <= 3 ? winners.map(c =>
@@ -1407,8 +1407,8 @@ function buildAwards(gwId, picksFor, liveFor){
                : caps.filter(c => c.pid === best.pid).length === 1
                  ? ' — the only one in the league.' : '.')});
 
-      out.push(vetsina(lastPlace)
-        ? {key: 'flop', who: 'Bez awards_', val: '—',
+      out.push(isMajority(lastPlace)
+        ? {key: 'flop', who: 'No award', val: '—',
            sub: `${reason(lastPlace)} — no award this gameweek.`}
         : {key: 'flop', who: namesOf(lastPlace), val: worst.pts + ' pts',
            whoHtml: lastPlace.length <= 3 ? lastPlace.map(c =>
@@ -1504,7 +1504,7 @@ function newsPanel(){
   const phase = gwPhase(sel);
   const [cls, title_, labelOf] = PHASE_NOTE[phase];
 
-  const prepinac = gws.length > 1
+  const gwSwitcher = gws.length > 1
     ? `<div class="gwnav" role="tablist" aria-label="Story gameweek">
         ${gws.map(g => {
           const p = gwPhase(g);
@@ -1518,7 +1518,7 @@ function newsPanel(){
       </div>`
     : '';
 
-  const stav = `<p class="note store ${cls === 'ok' ? 'ok' : ''} phase">
+  const phaseNote = `<p class="note store ${cls === 'ok' ? 'ok' : ''} phase">
     <b>${title_}</b> — ${labelOf}</p>`;
 
   /* The gameweek winner and the bench have their own award above — in the
@@ -1537,7 +1537,7 @@ function newsPanel(){
        a season total and has nothing to do with the selected gameweek. It
        used to disappear along with the awards and looked lost. */
     const cekame = !NEWS_PICKS.has(sel) || !NEWS_LIVE.has(sel);
-    return prepinac + stav
+    return gwSwitcher + phaseNote
       + `<p class="note">${cekame
           ? 'Loading this gameweek\'s picks and points…'
           : 'Neither awards nor stories could be computed for this gameweek.'}</p>`
@@ -1551,11 +1551,11 @@ function newsPanel(){
     ? `<span class="livetag">${phase === 'running' ? 'live' : 'awaiting bonus'}</span>`
     : '';
 
-  const awards_ = awards.length
-    ? `<div class="secline"><h4>Ceny gws</h4>${liveTag}</div>
+  const awardsHtml = awards.length
+    ? `<div class="secline"><h4>Gameweek awards</h4>${liveTag}</div>
        <div class="awards">${awards.map(a => {
          const meta = AWARD_META[a.key];
-         const noAward = a.val === '—' ? ' bezceny' : '';
+         const noAward = a.val === '—' ? ' noaward' : '';
          return `<div class="award ${meta.cls}${noAward}">
            <div class="medal" aria-hidden="true">${meta.emoji}</div>
            <div class="txt">
@@ -1573,7 +1573,7 @@ function newsPanel(){
      distinguish still loading from the request having failed. */
   const hasPicks = NEWS_PICKS.has(sel) && (NEWS_PICKS.get(sel) || []).length;
   const hasLive = NEWS_LIVE.has(sel) && NEWS_LIVE.get(sel);
-  const chybiPicks = awards.some(a => a.key === 'cap') ? ''
+  const missingPicks = awards.some(a => a.key === 'cap') ? ''
     : (!NEWS_PICKS.has(sel) || !NEWS_LIVE.has(sel))
       ? '<p class="note">Captain awards will follow once the picks load…</p>'
       : (!hasPicks || !hasLive)
@@ -1582,11 +1582,11 @@ function newsPanel(){
             Try <b>⟳</b> in the header.</p>`
         : '';
 
-  const zbytek = stories
+  const rest = stories
     ? `<div class="secline"><h4>What else happened</h4></div>` + stories
     : '';
 
-  return prepinac + stav + awards_ + chybiPicks + zbytek + hallPanel();
+  return gwSwitcher + phaseNote + awardsHtml + missingPicks + rest + hallPanel();
 }
 
 /* The season-long awards table. The captain columns are computed only
@@ -1713,14 +1713,14 @@ function renderHub(){
   }
 
   const SECS = [
-    ['Novinky', newsPanel()],
+    ['Stories', newsPanel()],
     ['Leaderboards', buildBoards()],
     ['Squad health', buildHealth()],
     ['Whole league', buildCollective()],
   ];
 
   $('hubout').innerHTML = `
-    <h2>${esc(CONFIG.leagueName || HUB.st.league.name)} · po ${HUB.cur.id}. kole${info(`${strengthsReady()
+    <h2>${esc(CONFIG.leagueName || HUB.st.league.name)} · after GW${HUB.cur.id}${info(`${strengthsReady()
       ? 'Difficulty is computed from the attacking and defensive strength of both teams, not from the fixed FDR '
         + 'FPL sets in August and never changes. The colours are <b>relative</b> — each band gets '
         + 'roughly a fifth of the fixtures.'
@@ -1916,13 +1916,13 @@ function buildTicker(){
   ).join('');
 
   return `<table class="ticker">
-      <thead><tr><th>Klub</th>${head}<th>Ø</th></tr></thead>
+      <thead><tr><th>Club</th>${head}<th>Ø</th></tr></thead>
       <tbody>${body}</tbody>
     </table>
     `;
 }
 
-/* --- 2. Blanky a doubly --- */
+/* --- 2. Blanks and doubles --- */
 function buildShape(){
   const start = planStartGw();
   const shape = gwShape(start, PLAN_GWS).filter(x => x.blanks.length || x.doubles.length);
@@ -2001,7 +2001,7 @@ function priceMoves(){
   return {up, down, ok: scored.length > 0};
 }
 
-/* Jistota pohybu awards_.
+/* Confidence in a price move.
 
    FPL sends a likelihood in the range −5…+5. It used to be drawn as a row
    of dots, which was a problem twice over: nobody tells five dots from
@@ -2075,7 +2075,7 @@ function buildPrices(){
       + 'you only get half the profit back.')
     + tbl(mv.down, 'down', 'Closest to a fall',
       'A fall takes value out of your team. If you plan to let him go anyway, do it now.')
-    + `<p class="note">Sloupec <b>Dnes v noci</b> je jistota pohybu podle FPL
+    + `<p class="note">The <b>Tonight</b> column is FPL's own confidence in a move
        (a five-step scale, "certain" being the highest); the meter beside it is the real
        fill of the price gauge in per cent. Highlighted rows are players in your squad.${
        nextDl ? ' Next price change: <b>' + nextDl.toLocaleString('en-GB',
@@ -2094,8 +2094,8 @@ async function loadPlan(){
     // they were impossible to navigate. Chip advice went entirely: it needed
     // a squad loaded from another tab and without one it only showed a prompt.
     const SECTIONS = [
-      ['Rozpis', buildTicker()],
-      ['Blanky a doubly', buildShape()],
+      ['Ticker', buildTicker()],
+      ['Blanks and doubles', buildShape()],
     ];
 
     $('plout').innerHTML = `
@@ -2278,7 +2278,7 @@ function renderLeagueHistory(members, pasts, myId){
       outside this league. A dot means they did not play at all.</p>
     <p class="note">FPL does not send mini-league standings for past seasons,
       only each manager's totals — so the table is derived from the people who are
-      v lize dneska.</p>`;
+      in the league today.</p>`;
 }
 
 async function loadLeagueHistory(members, myId){
@@ -2506,7 +2506,7 @@ function buildDifferentials(){
 
     out += `<div class="subnav" role="tablist">
         <button class="sub-btn" role="tab" aria-selected="true" data-diff="0">Sharp</button>
-        <button class="sub-btn" role="tab" aria-selected="false" data-diff="1">Pod polovinou ligy</button>
+        <button class="sub-btn" role="tab" aria-selected="false" data-diff="1">Under half the league</button>
       </div>
       <div class="sec" id="diff-0">
         <p class="note">Players ${esc(l.tier.label)} (${n} managers).
@@ -2597,10 +2597,10 @@ function toggleWatch(id){
 /* A star for any player. The handler is delegated, so it survives a table
    redraw. */
 function watchStar(id){
-  const theirs_ = isWatched(id);
-  return `<button type="button" class="star${theirs_ ? ' theirs_' : ''}" data-watch="${id}"
-    aria-pressed="${theirs_}" title="${theirs_ ? 'Remove from watchlist' : 'Watch this player'}"
-    aria-label="${theirs_ ? 'Remove from watchlist' : 'Watch this player'}">${theirs_ ? '★' : '☆'}</button>`;
+  const watched = isWatched(id);
+  return `<button type="button" class="star${watched ? ' on' : ''}" data-watch="${id}"
+    aria-pressed="${watched}" title="${watched ? 'Remove from watchlist' : 'Watch this player'}"
+    aria-label="${watched ? 'Remove from watchlist' : 'Watch this player'}">${watched ? '★' : '☆'}</button>`;
 }
 
 /* A watched player's state in one sentence — the same thing Home needs. */
@@ -2689,15 +2689,15 @@ function buildWatch(){
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('button[data-watch]');
   if(!btn) return;
-  const theirs_ = toggleWatch(btn.dataset.watch);
+  const on = toggleWatch(btn.dataset.watch);
 
   // Redraw every star for the same player, not just the one clicked —
   // the same player is often in both a movement table and the watchlist.
   document.querySelectorAll(`button[data-watch="${btn.dataset.watch}"]`)
     .forEach(b => {
-      b.textContent = theirs_ ? '★' : '☆';
-      b.classList.toggle('theirs_', theirs_);
-      b.setAttribute('aria-pressed', String(theirs_));
+      b.textContent = on ? '★' : '☆';
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
     });
 
   const sec = $('pr-3');
@@ -2760,16 +2760,16 @@ function wireWatch(){
 
   let highlighted = -1;   // index of the highlighted suggestion for keyboard control
 
-  const zavri = () => {
+  const closeList = () => {
     sug.hidden = true;
     sug.innerHTML = '';
     q.setAttribute('aria-expanded', 'false');
     highlighted = -1;
   };
 
-  const kresli = () => {
+  const drawList = () => {
     const hits = watchMatches(q.value).filter(h => !isWatched(h.p.id));
-    if(!hits.length){ zavri(); return; }
+    if(!hits.length){ closeList(); return; }
 
     const teams = Object.fromEntries(BOOT.teams.map(t => [t.id, t]));
     sug.innerHTML = hits.map((h, i) => `<button type="button" role="option"
@@ -2782,11 +2782,11 @@ function wireWatch(){
     q.setAttribute('aria-expanded', 'true');
   };
 
-  q.addEventListener('input', () => { highlighted = -1; kresli(); });
+  q.addEventListener('input', () => { highlighted = -1; drawList(); });
 
   q.addEventListener('keydown', ev => {
     const opts = [...sug.querySelectorAll('button[data-add]')];
-    if(ev.key === 'Escape'){ zavri(); return; }
+    if(ev.key === 'Escape'){ closeList(); return; }
     if(!opts.length) return;
 
     if(ev.key === 'ArrowDown' || ev.key === 'ArrowUp'){
@@ -2814,7 +2814,7 @@ function wireWatch(){
     watchRedraw();
   });
 
-  q.addEventListener('blur', () => setTimeout(zavri, 150));
+  q.addEventListener('blur', () => setTimeout(closeList, 150));
 }
 
 /* Players whose price moved during the last gameweek.

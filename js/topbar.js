@@ -46,7 +46,7 @@
   const sheet = document.getElementById('topsheet');
 
   /* ---------- menu ----------
-     Rebuilt theirs_ every open: the team name and which buttons are available
+     Rebuilt on every open: the team name and which buttons are available
      change at runtime, and a frozen copy would lie. */
   function action(id, text){
     /* `hidden` is a property, not CSS: the buttons in the bar are hidden
@@ -126,17 +126,17 @@
 
     // Arrow keys inside the open menu; otherwise the first Tab leaves it.
     if(!sheet.hidden && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')){
-      const polozky = [...sheet.querySelectorAll('button:not([disabled])')];
-      const i = polozky.indexOf(document.activeElement);
-      const dalsi = polozky[(i + (ev.key === 'ArrowDown' ? 1 : -1) + polozky.length)
-        % polozky.length];
-      if(dalsi){ ev.preventDefault(); dalsi.focus(); }
+      const entries = [...sheet.querySelectorAll('button:not([disabled])')];
+      const i = entries.indexOf(document.activeElement);
+      const next_ = entries[(i + (ev.key === 'ArrowDown' ? 1 : -1) + entries.length)
+        % entries.length];
+      if(next_){ ev.preventDefault(); next_.focus(); }
     }
   });
 
   /* ---------- status chip ----------
      Live points during a gameweek, otherwise the deadline countdown. It
-     is the same information the status bar carries — theirs_ a wide display
+     is the same information the status bar carries — on a wide display
      once is enough, and here it is closer to what people came for. */
   function drawChip(){
     const chip = document.getElementById('topstate');
@@ -185,7 +185,7 @@
   const pout = document.getElementById('palout');
   let PAL_I = 0, PAL_ITEMS = [];
 
-  function polozky(dotaz){
+  function entries(dotaz){
     const q = dotaz.trim().toLowerCase();
     const out = [];
 
@@ -208,11 +208,11 @@
   }
 
   function renderPal(){
-    PAL_ITEMS = polozky(pin.value);
+    PAL_ITEMS = entries(pin.value);
     PAL_I = Math.min(PAL_I, Math.max(0, PAL_ITEMS.length - 1));
     pout.innerHTML = PAL_ITEMS.length
       ? PAL_ITEMS.map((it, i) => `<button type="button" data-pal="${i}"
-          class="${i === PAL_I ? 'theirs_' : ''}"><span class="t">${esc(it.text)}</span>
+          class="${i === PAL_I ? 'on' : ''}"><span class="t">${esc(it.text)}</span>
           ${it.sub ? `<span class="s">${esc(it.sub)}</span>` : ''}
           <span class="k">${it.typ}</span></button>`).join('')
       : '<p class="empty">Nothing like that here. Try a manager name or a section name.</p>';
@@ -228,7 +228,7 @@
   }
   function closePal(){ if(pal) pal.hidden = true; }
 
-  function spustit(it){
+  function run_(it){
     if(!it) return;
     closePal();
     if(it.tid){
@@ -247,7 +247,7 @@
     pin.addEventListener('keydown', ev => {
       if(ev.key === 'ArrowDown'){ ev.preventDefault(); PAL_I++; }
       else if(ev.key === 'ArrowUp'){ ev.preventDefault(); PAL_I--; }
-      else if(ev.key === 'Enter'){ ev.preventDefault(); spustit(PAL_ITEMS[PAL_I]); return; }
+      else if(ev.key === 'Enter'){ ev.preventDefault(); run_(PAL_ITEMS[PAL_I]); return; }
       else return;
       PAL_I = (PAL_I + PAL_ITEMS.length) % Math.max(1, PAL_ITEMS.length);
       renderPal();
@@ -255,7 +255,7 @@
 
     pout.addEventListener('click', ev => {
       const b = ev.target.closest('[data-pal]');
-      if(b) spustit(PAL_ITEMS[Number(b.dataset.pal)]);
+      if(b) run_(PAL_ITEMS[Number(b.dataset.pal)]);
     });
 
     document.addEventListener('keydown', ev => {

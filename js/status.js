@@ -48,13 +48,13 @@ function statusTime(ts){
    deadline and does not say another one follows right behind. */
 function dvojityDeadline(){
   if(!BOOT) return null;
-  const dalsi = (BOOT.events || [])
+  const upcoming = (BOOT.events || [])
     .filter(e => new Date(e.deadline_time).getTime() > Date.now())
     .sort((a, b) => new Date(a.deadline_time) - new Date(b.deadline_time))
     .slice(0, 2);
-  if(dalsi.length < 2) return null;
-  const rozdil = new Date(dalsi[1].deadline_time) - new Date(dalsi[0].deadline_time);
-  return rozdil < 3 * 86400000 ? dalsi : null;
+  if(upcoming.length < 2) return null;
+  const gap = new Date(upcoming[1].deadline_time) - new Date(upcoming[0].deadline_time);
+  return gap < 3 * 86400000 ? upcoming : null;
 }
 
 function drawStatus(){
@@ -106,7 +106,7 @@ function drawStatus(){
   }
 }
 
-/* The clock and the countdown move theirs_ their own even when nothing is
+/* The clock and the countdown move on their own even when nothing is
    loading — that is what they are for. The whole bar is redrawn, because
    the countdown is part of it. */
 setInterval(() => { try{ drawStatus(); }catch(e){} }, 30000);
@@ -125,7 +125,7 @@ function flash(el){
 }
 
 /* ------------------------------------------------------------
-   Zkusit znovu
+   Try again
 
    Returns a message together with a button. `tab` is the id of the tab
    to reload; without it the given function is simply repeated.
@@ -138,7 +138,7 @@ function errBox(zprava, tab, fn){
   if(fn) RETRY_FN.set(id, fn);
   return `<p class="errbox" role="alert"><span>${esc(zprava)}</span>
     <button type="button" class="small" data-retry="${id}"
-      data-retrytab="${esc(tab || '')}">Zkusit znovu</button></p>`;
+      data-retrytab="${esc(tab || '')}">Try again</button></p>`;
 }
 
 document.addEventListener('click', async ev => {
@@ -163,14 +163,14 @@ document.addEventListener('click', async ev => {
     }
   }catch(e){
     btn.disabled = false;
-    btn.textContent = 'Zkusit znovu';
+    btn.textContent = 'Try again';
   }
 });
 
 /* ------------------------------------------------------------
    Sharing
 
-   navigator.share exists theirs_ a phone; theirs_ desktop it ends up in the
+   navigator.share exists on a phone; on desktop it ends up in the
    clipboard. Both are "I got it out of the app", which is the point.
    ------------------------------------------------------------ */
 async function shareText(title_, text){
@@ -188,21 +188,21 @@ async function shareText(title_, text){
 document.addEventListener('click', async ev => {
   const btn = ev.target.closest('[data-share]');
   if(!btn) return;
-  const puvodni = btn.textContent;
+  const original = btn.textContent;
   const res = await shareText(btn.dataset.sharetitle || 'Squad Check',
                               btn.dataset.share);
   if(res){
     btn.textContent = res === 'shared' ? 'Done' : 'Copied';
-    setTimeout(() => { btn.textContent = puvodni; }, 2000);
+    setTimeout(() => { btn.textContent = original; }, 2000);
   }
 });
 
 /* ------------------------------------------------------------
-   Odkaz na kolo
+   A link to a section
 
    Shape `#prices` or `#hub/gw7`. The section is required, the gameweek
    optional. Read at startup and written when tabs change — so the address
-   bar always matches what is theirs_ screen.
+   bar always matches what is on screen.
    ------------------------------------------------------------ */
 const HASH_TAB = {
   home: 't-home', squad: 't-squad', league: 't-league', hub: 't-hub',

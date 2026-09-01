@@ -43,7 +43,7 @@ function resetState(){
   HOME = null;
   WATCH = null;          // the watchlist is per entry ID
   HUB = null;
-  NEWS_GW = null;        // or the new team would start theirs_ someone else's gameweek
+  NEWS_GW = null;        // or the new team would start on someone else's gameweek
   NEWS_PICKS.clear();
   NEWS_LIVE.clear();
   HALL_ALL = false;
@@ -61,7 +61,7 @@ function resetState(){
 
 /* Sprite of coloured club marks. Used as a fallback when a badge is
    missing from the CDN (typically a freshly promoted club). Loaded only
-   after entering the app — theirs_ the entry screen it would be useless. */
+   after entering the app — on the entry screen it would be useless. */
 let MARKS_LOADED = false;
 async function loadClubMarks(){
   if(MARKS_LOADED) return;
@@ -102,15 +102,18 @@ function enterApp(entryId, leagueId){
   window.scrollTo(0, 0);
 }
 
-/* The league name in the header. Long names are set in a smaller face so
-   they fit theirs_ two lines next to the tab segment. */
+/* The header always carries the name of the app, never the name of the
+   league. The league name used to be there, which read as branding for one
+   particular mini-league — the opposite of what a generic tool should say.
+   The league is named where it belongs: in the heading of the league panels.
+   It stays in the title attribute, so hovering still tells you which league
+   is loaded. */
 function setBrandName(name){
   const bt = $('brandTop');
   if(!bt) return;
-  const txt = name || 'SQUAD CHECK';
-  bt.textContent = txt;
-  bt.classList.toggle('long', txt.length > 18);
-  bt.title = name ? name + ' · Squad Check' : 'Squad Check';
+  bt.textContent = 'FPL SQUAD CHECK';
+  bt.classList.remove('long');
+  bt.title = name ? 'FPL Squad Check · ' + name : 'FPL Squad Check';
 }
 
 /* ------------------------------------------------------------
@@ -127,11 +130,11 @@ function gateError(msg, focusId){
   if(focusId && $(focusId)) $(focusId).focus();
 }
 
-function gateBusy(theirs_){
+function gateBusy(on){
   const btn = $('enter');
   if(!btn) return;
-  btn.disabled = theirs_;
-  btn.textContent = theirs_ ? 'Checking…' : 'Open';
+  btn.disabled = on;
+  btn.textContent = on ? 'Checking…' : 'Open';
 }
 
 /* Reads the standings for the entered league, checks its size and that
