@@ -517,10 +517,10 @@ tr.click:hover td{background:var(--haze)}
 .award.a-flop{--accent:var(--flop)}
 /* An award that was not given must not look like a win — only the icon and
    the explanation stay, the colour and the big number go grey. */
-.award.bezceny{--accent:var(--mute);background:var(--haze)}
-.award.bezceny .medal{filter:grayscale(1);opacity:.5}
-.award.bezceny .who{color:var(--mute);font-weight:500}
-.award.bezceny .val{font-size:15px;opacity:.6}
+.award.noaward{--accent:var(--mute);background:var(--haze)}
+.award.noaward .medal{filter:grayscale(1);opacity:.5}
+.award.noaward .who{color:var(--mute);font-weight:500}
+.award.noaward .val{font-size:15px;opacity:.6}
 
 /* ---------- hall of fame ---------- */
 .hall{border:1px solid var(--line);border-radius:12px;overflow:hidden;
@@ -1844,3 +1844,59 @@ body.sq-lock{overflow:hidden}
   border:1px solid var(--gold);border-radius:999px;padding:3px 11px;
   background:#FDF6E8;color:#7A5A1E;font-size:12px;white-space:nowrap}
 .statusbar .sbdl b{font-family:var(--f-disp);letter-spacing:.05em;color:#5E4416}
+
+/* ============================================================
+   FOOTER
+
+   Three rows on a narrow screen, one on a wide one. Deliberately quiet:
+   aubergine like the header, so the page is bracketed by the same colour and
+   the white content sits between them like paper on a desk.
+
+   It is written by js/footer.js after the app, so it appears on the entry
+   screen as well — that is where a first-time visitor decides whether to
+   trust the thing at all.
+   ============================================================ */
+#sitefoot{margin-top:56px;background:var(--aubergine);color:#E6DCEA}
+.foot-in{max-width:1180px;margin:0 auto;padding:26px 28px 34px;
+  display:flex;flex-wrap:wrap;gap:18px 26px;align-items:flex-start}
+.foot-brand{flex:1 1 320px;min-width:0}
+.foot-brand b{display:block;font-family:var(--f-disp);font-size:15px;
+  letter-spacing:.4px;color:#fff}
+.foot-brand span{display:block;margin-top:5px;font-size:12.5px;line-height:1.55;
+  color:#B3A8CE;max-width:52ch}
+.foot-acts{display:flex;align-items:center;gap:16px;flex:0 0 auto}
+
+/* The one solid gold element down here — the same language as the button on
+   the entry screen, so "this is the thing to press" reads the same way twice. */
+.coffee{display:inline-flex;align-items:center;gap:7px;
+  background:linear-gradient(180deg,#F2D98A,#C99A45);color:#2B0030;
+  padding:9px 15px;border-radius:9px;font-size:13px;font-weight:700;
+  text-decoration:none;white-space:nowrap;
+  transition:filter .15s,transform .15s}
+.coffee:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.coffee:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#sitefoot .lnkbtn{color:#D9CBE2;font-size:13px}
+#sitefoot .lnkbtn:hover{color:#fff}
+
+.foot-form{flex:1 1 100%;max-width:520px;display:flex;flex-direction:column;
+  gap:10px;padding-top:6px}
+.foot-form label{display:block;font-size:12px;font-weight:600;
+  letter-spacing:.3px;text-transform:uppercase;color:#B3A8CE}
+.foot-form input,.foot-form textarea{width:100%;margin-top:6px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);
+  border-radius:9px;padding:9px 11px;color:#fff;font:inherit;font-size:14px;
+  text-transform:none;letter-spacing:normal;resize:vertical}
+.foot-form input::placeholder,.foot-form textarea::placeholder{color:#8A7C9B}
+.foot-form input:focus,.foot-form textarea:focus{outline:none;
+  border-color:var(--gold);background:rgba(255,255,255,.11)}
+.foot-send{display:flex;align-items:center;gap:12px}
+.foot-send .small{background:rgba(255,255,255,.12);color:#fff;
+  border:1px solid rgba(255,255,255,.22)}
+.foot-send .small:hover{background:rgba(255,255,255,.2)}
+#cfMsgOut{font-size:12.5px;color:#B3A8CE}
+
+@media (max-width:640px){
+  .foot-in{padding:22px 18px 28px;gap:14px}
+  .foot-acts{flex:1 1 100%}
+  .coffee{flex:1 1 auto;justify-content:center}
+}
