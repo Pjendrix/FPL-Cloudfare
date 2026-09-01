@@ -120,7 +120,7 @@ const html = inlineScripts(fs.readFileSync('index.html', 'utf8'));
    into css/ and js/, the "source" is the sum of those files. */
 const JS_FILES = ['js/core.js', 'js/tabs.js', 'js/status.js', 'js/squad.js',
                   'js/news.js', 'js/ui.js', 'js/histcache.js', 'js/gate.js',
-                  'js/topbar.js', 'js/mobile.js', 'js/boot.js'];
+                  'js/topbar.js', 'js/footer.js', 'js/mobile.js', 'js/boot.js'];
 const CSS_TAGS = [
   ['css/app.css',    '<style>'],
   ['css/narrow.css', '<style id="mqL" media="(max-width:720px)">'],
@@ -524,6 +524,74 @@ check('checkLeague accepts a league within the cap', () => {
    The build itself
    ============================================================ */
 
+/* The bugs this suite was extended for after the first round of feedback:
+   an identifier rename that ran over English words in strings, and two
+   helpers that were left referenced after their file was deleted. */
+check('the helpers left behind by deleted modules are defined', () => {
+  /* storageNote lived in sync.js and ftOverride in planner.js. Both files are
+     gone, but the calls stayed — so Home, Squad and Prices all threw a
+     ReferenceError and rendered nothing at all. */
+  const orphans = ['storageNote', 'ftOverride'];
+  const all = JS_FILES.map(f => fs.readFileSync(f, 'utf8')).join('\n');
+  for(const name of orphans){
+    if(!new RegExp('function ' + name + '\\s*\\(').test(all))
+      throw new Error(name + ' is called but never defined');
+    if(typeof w.eval(name) !== 'function')
+      throw new Error(name + ' does not resolve at runtime');
+  }
+  return orphans.join(', ');
+});
+
+check('Home renders instead of throwing', () => {
+  /* The panel is written in one innerHTML assignment, so a single throw
+     anywhere inside leaves it completely blank — which is exactly what
+     happened. */
+  w.eval('HOME = {entry: {name: "T", player_first_name: "J", player_last_name: "N",'
+    + ' summary_overall_points: 500, summary_overall_rank: 1000,'
+    + ' last_deadline_value: 1005, last_deadline_bank: 5}, picks: null,'
+    + ' startGw: 11, liveTotal: null}');
+  w.eval('drawHome()');
+  const out = w.document.getElementById('hmout').innerHTML;
+  if(out.length < 200) throw new Error('Home is empty (' + out.length + ' characters)');
+  // The awards box may legitimately be a skeleton while the hub loads in the
+  // background; the whole panel being one must not happen.
+  if(/^\s*<div class="skel">(<i><\/i>)+<\/div>\s*$/.test(out))
+    throw new Error('Home is stuck on the skeleton');
+  if(!/hcard|hrow|<h3/.test(out)) throw new Error('Home has no content blocks');
+  return out.length + ' characters';
+});
+
+check('the header carries the app name, not the league name', () => {
+  const gate = fs.readFileSync('js/gate.js', 'utf8');
+  const fn = gate.slice(gate.indexOf('function setBrandName'));
+  if(!/FPL SQUAD CHECK/.test(fn.slice(0, 400)))
+    throw new Error('setBrandName does not write the app name');
+  if(/bt\.textContent = txt/.test(fn.slice(0, 400)))
+    throw new Error('the league name is still written into the header');
+  return 'FPL SQUAD CHECK';
+});
+
+check('the footer offers support and a contact form', () => {
+  const src = fs.readFileSync('js/footer.js', 'utf8');
+  if(!src.includes('buymeacoffee.com/pjx88')) throw new Error('the support link is missing');
+  if(!src.includes('formspree.io/f/')) throw new Error('the contact endpoint is missing');
+  const csp = fs.readFileSync('_headers', 'utf8');
+  if(!csp.includes('https://formspree.io'))
+    throw new Error('the CSP would block the contact form');
+  return 'coffee + formspree';
+});
+
+check('the bench award reads the property it writes', () => {
+  const src = fs.readFileSync('js/tabs.js', 'utf8');
+  const fn = src.slice(src.indexOf('function unluckiest('),
+                       src.indexOf('function unluckiest1('));
+  if(!/benched:/.test(fn)) throw new Error('the bench total is not written');
+  if(/\.lav\b/.test(fn)) throw new Error('a renamed property is still read as .lav');
+  const writes = (fn.match(/x\.benched/g) || []).length;
+  if(writes < 2) throw new Error('the property is written but never read back');
+  return 'benched, read ' + writes + '\u00d7';
+});
+
 check('nothing in the source is left in Czech', () => {
   const hits = SRC.split('\n').filter(l => /[ěščřžýáíéúůťďňó]/i.test(l));
   if(hits.length) throw new Error(hits.length + ' lines, first: ' + hits[0].trim().slice(0, 60));
@@ -596,7 +664,9 @@ check('the CSP allows nothing the app does not use', () => {
   const csp = fs.readFileSync('_headers', 'utf8')
     .match(/Content-Security-Policy: (.+)/)[1];
   if(!csp.startsWith("default-src 'none'")) throw new Error('default-src is not none');
-  if(!/connect-src 'self'/.test(csp)) throw new Error('connect-src is too wide');
+  // formspree.io is the contact form and the only third party the app talks to.
+  if(!/connect-src 'self' https:\/\/formspree\.io;/.test(csp))
+    throw new Error('connect-src is not exactly self + formspree');
   return csp.length + ' characters';
 });
 

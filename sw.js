@@ -9,7 +9,7 @@
 // (promotion and relegation), so they are kept indefinitely — an image cannot
 // go stale in a harmful way and it saves dozens of requests on every open.
 
-const SHELL = 'squadcheck-shell-v26';
+const SHELL = 'squadcheck-shell-v27';
 const BADGES = 'squadcheck-badges-v1';
 const FILES = ['/', '/index.html', '/manifest.webmanifest',
                '/icon.svg', '/favicon.svg', '/club-marks.svg',
@@ -20,7 +20,7 @@ const FILES = ['/', '/index.html', '/manifest.webmanifest',
                '/css/mobile.css',
                '/js/core.js', '/js/tabs.js', '/js/status.js', '/js/squad.js',
                '/js/news.js', '/js/ui.js', '/js/histcache.js', '/js/gate.js',
-               '/js/topbar.js', '/js/mobile.js', '/js/boot.js',
+               '/js/topbar.js', '/js/footer.js', '/js/mobile.js', '/js/boot.js',
                // The entry screen artwork: small, unchanging, and without it
                // the landing page looks broken.
                '/assets/hero.svg', '/assets/mark.webp'];
